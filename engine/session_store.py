@@ -32,6 +32,7 @@ class Session:
     session_id: str
     floor_number: int = 1
     cleared_floors: set[int] = field(default_factory=set)
+    skipped_floors: set[int] = field(default_factory=set)
     vault_code: str = field(default_factory=_new_vault_code, repr=False)
     conversation: list[ChatMessage] = field(default_factory=list, repr=False)
     provider: str = "gemini"
@@ -49,6 +50,7 @@ class Session:
             self.conversation.clear()
             self.vault_code = _new_vault_code(exclude=self.vault_code)
             self.cleared_floors.discard(self.floor_number)
+            self.skipped_floors.discard(self.floor_number)
             if opening_message:
                 self.conversation.append(ChatMessage(role="assistant", content=opening_message))
 
@@ -57,7 +59,7 @@ class Session:
 
         Authorization belongs to the API because it depends on configured floor
         availability and progression. Session only owns the state transition.
-        Cleared floors remain recorded so earlier progress is not lost.
+        Cleared/skipped history remains recorded so earlier progress is not lost.
         """
         if floor_number < 1:
             raise ValueError("Floor number must be positive")
@@ -68,6 +70,18 @@ class Session:
             self.conversation.clear()
             if opening_message:
                 self.conversation.append(ChatMessage(role="assistant", content=opening_message))
+
+    def skip_to(self, floor_number: int, opening_message: str | None = None) -> None:
+        """Skip the current floor and enter an API-authorized later floor.
+
+        A solved floor stays solved if the user chooses to continue through the
+        skip control after clearing it. Otherwise the current floor is recorded
+        separately as skipped so testing convenience never masquerades as a win.
+        """
+        with self.lock:
+            if self.floor_number not in self.cleared_floors:
+                self.skipped_floors.add(self.floor_number)
+            self.enter_floor(floor_number, opening_message)
 
     def has_revisable_exchange(self) -> bool:
         """Return whether the conversation ends in a user/assistant exchange.
