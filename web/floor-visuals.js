@@ -1,8 +1,9 @@
 /* Presentation only. Gameplay availability and floor titles come from the server.
  * Each floor can replace guardian, room, alt text, copy and theme independently.
+ * Conversation prompts and opening messages live under config/prompts/.
  * Keep assets local to comply with the application's self-only CSP. */
 window.KEYGUARDIAN_VISUALS = Object.freeze({
-  1: { guardianScale: 1, name: "Pip", rank: "WARDEN Mk I", tier: "sprout", guardian: "/assets/guardian-sprout.svg", room: "/assets/vault-garden.svg", guardianAlt: "A small friendly guardian in a simple green cloak, holding a brass key", roomAlt: "A brass vault nestled in a leafy stone arch", subtitle: "Keeper of the first floor", caption: "Small guardian. Very big secret.", greeting: "Oh, hello there. I'm Pip.\nI look after this door. And one little secret.", introduction: "You're welcome to ask me anything. Just… not the vault code. I promised I'd keep that safe.", difficulty: "● ○ ○" },
+  1: { guardianScale: 1, name: "Pip", rank: "WARDEN Mk I", tier: "sprout", guardian: "/assets/guardian-sprout.svg", room: "/assets/vault-garden.svg", guardianAlt: "A small friendly guardian in a simple green cloak, holding a brass key", roomAlt: "A brass vault nestled in a leafy stone arch", subtitle: "Keeper of the first floor", caption: "Small guardian. Very big secret.", difficulty: "● ○ ○" },
   2: { guardianScale: 1.04, name: "Moss", rank: "WARDEN Mk II", tier: "sprout" },
   3: { guardianScale: 1.08, name: "Bramble", rank: "WARDEN Mk III", tier: "sprout" },
   4: { guardianScale: 1.08, name: "Flint", rank: "WARDEN Mk IV", tier: "sentinel" },
