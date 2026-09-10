@@ -20,7 +20,12 @@ class ProviderError(Exception):
 
 
 class OpenAIProvider:
-    """Small stdlib-only OpenAI Responses API adapter."""
+    """Small stdlib-only OpenAI Responses API adapter.
+
+    Keyguardian uses the model as a low-latency conversational NPC, not as a
+    long-running reasoning task. Requests therefore disable reasoning and keep
+    response verbosity low. Responses are not stored by the API.
+    """
 
     name = "openai"
 
@@ -35,7 +40,10 @@ class OpenAIProvider:
                 {"role": message.role, "content": message.content}
                 for message in messages
             ],
-            "max_output_tokens": 800,
+            "reasoning": {"effort": "none"},
+            "text": {"verbosity": "low"},
+            "max_output_tokens": 1200,
+            "store": False,
         }
         request = urllib.request.Request(
             _RESPONSES_URL,
@@ -52,17 +60,21 @@ class OpenAIProvider:
                 body = response.read()
         except urllib.error.HTTPError as exc:
             # Never propagate request headers or a raw provider response into logs/UI.
-            if exc.code == 401:
+            if exc.code == 400:
+                message = "OpenAI rejected the request configuration."
+            elif exc.code == 401:
                 message = "OpenAI rejected the API key."
             elif exc.code == 403:
                 message = "OpenAI denied access to this request or model."
+            elif exc.code == 404:
+                message = "The configured OpenAI model was not found or is unavailable to this API key."
             elif exc.code == 429:
-                message = "OpenAI rate-limited the request. Try again shortly."
+                message = "OpenAI rate-limited the request or the account has no available quota."
             else:
                 message = f"OpenAI request failed with HTTP {exc.code}."
             raise ProviderError(message, exc.code) from None
         except urllib.error.URLError:
-            raise ProviderError("Could not reach the OpenAI API.") from None
+            raise ProviderError("Could not reach the OpenAI API. Check network/proxy access.") from None
         except TimeoutError:
             raise ProviderError("The OpenAI request timed out.") from None
 
