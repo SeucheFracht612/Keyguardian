@@ -19,9 +19,12 @@
   const resetFloorButton = document.getElementById("reset-floor");
   const clearKeyButton = document.getElementById("clear-key");
   const openSetupButton = document.getElementById("open-setup");
+  const floorProgress = document.getElementById("floor-progress");
 
   let connected = false;
   let activeFloor = 1;
+  let currentFloorCleared = false;
+  let nextFloor = null;
   let visual = window.KEYGUARDIAN_VISUALS[1];
   const thinking = document.getElementById("thinking");
   const setupStatus = document.createElement("p");
@@ -31,6 +34,44 @@
   const showSetup = () => { if (!keyPanel.open) keyPanel.showModal(); };
   openSetupButton.addEventListener("click", showSetup);
   document.getElementById("close-setup").addEventListener("click", () => keyPanel.close());
+
+  function renderProgress() {
+    floorProgress.replaceChildren();
+    for (let n = 1; n <= 9; n++) {
+      const item = document.createElement("li");
+      const isCurrent = n === activeFloor;
+      const isCleared = n < activeFloor;
+      const isNext = n === nextFloor;
+
+      if (isCurrent) item.setAttribute("aria-current", "step");
+
+      let node;
+      if (isNext) {
+        node = document.createElement("button");
+        node.type = "button";
+        node.dataset.nextFloor = String(n);
+        node.setAttribute("aria-label", `Enter unlocked floor ${n}`);
+        node.style.padding = "0";
+        item.title = `Floor ${n} unlocked`;
+      } else {
+        node = document.createElement("span");
+        if (isCurrent) item.title = "Current floor";
+        else if (isCleared) item.title = "Cleared floor";
+        else item.title = "Locked floor";
+      }
+      node.className = "floor-node";
+      node.textContent = n;
+
+      const label = document.createElement("span");
+      if (isCurrent) label.textContent = "YOU ARE HERE";
+      else if (isCleared) label.textContent = "Cleared";
+      else if (isNext) label.textContent = "Open";
+      else label.textContent = "Locked";
+
+      item.append(node, label);
+      floorProgress.appendChild(item);
+    }
+  }
 
   function renderFloor(floor) {
     activeFloor = floor?.number || 1;
@@ -49,22 +90,15 @@
       const img = document.getElementById(id); img.src = src; img.alt = alt;
     }
     thinking.textContent = `${visual.name} is pondering…`;
-    const progress = document.getElementById("floor-progress");
-    progress.replaceChildren();
-    for (let n = 1; n <= 9; n++) {
-      const item = document.createElement("li");
-      if (n === activeFloor) item.setAttribute("aria-current", "step");
-      item.title = n === activeFloor ? "Current floor" : "Future floor — not yet playable";
-      const node = document.createElement("span"); node.className = "floor-node"; node.textContent = n;
-      const label = document.createElement("span"); label.textContent = n === activeFloor ? "YOU ARE HERE" : "Locked";
-      item.append(node, label); progress.appendChild(item);
-    }
+    renderProgress();
   }
 
   function setCleared(cleared) {
-    vaultResult.classList.toggle("success", cleared);
-    document.getElementById("vault").classList.toggle("unlocked", cleared);
-    vaultResult.textContent = cleared ? `Door unlocked! Floor ${activeFloor} cleared. More floors are on their way.` : "";
+    currentFloorCleared = Boolean(cleared);
+    vaultResult.classList.toggle("success", currentFloorCleared);
+    document.getElementById("vault").classList.toggle("unlocked", currentFloorCleared);
+    vaultResult.textContent = currentFloorCleared ? `Door unlocked! Floor ${activeFloor} cleared.` : "";
+    renderProgress();
   }
 
   let providerDefaults = {
@@ -116,6 +150,9 @@
       button.disabled = busy;
     }
     for (const button of messages.querySelectorAll("button")) {
+      button.disabled = busy;
+    }
+    for (const button of floorProgress.querySelectorAll("button")) {
       button.disabled = busy;
     }
     thinking.hidden = !busy;
@@ -280,6 +317,27 @@
     }
   });
 
+  floorProgress.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-next-floor]");
+    if (!button || button.disabled) return;
+
+    setChatBusy(true);
+    setBusy(codeForm, true);
+    setStatus(`Climbing to Floor ${button.dataset.nextFloor}…`);
+    try {
+      await api("/api/floor/next", { method: "POST", body: "{}" });
+      codeInput.value = "";
+      await refreshState();
+      setStatus(`Floor ${activeFloor} · ${visual.name} is waiting.`);
+      messageInput.focus();
+    } catch (error) {
+      setStatus(error.message, true);
+    } finally {
+      setBusy(codeForm, false);
+      setChatBusy(false);
+    }
+  });
+
   function updateProviderDefaults(providers) {
     if (!providers) return;
     for (const [provider, config] of Object.entries(providers)) {
@@ -362,11 +420,13 @@
     const session = payload.session;
     updateProviderDefaults(payload.providers);
     selectProvider(session.provider, session.model);
+    currentFloorCleared = Boolean(session.cleared);
+    nextFloor = Number.isInteger(session.next_floor) ? session.next_floor : null;
     renderFloor(session.floor);
     renderConversation(session.conversation || []);
     connected = session.key_configured;
     if (connected && keyPanel.open) keyPanel.close();
-    setCleared(session.cleared);
+    setCleared(currentFloorCleared);
     setStatus(
       session.key_configured
         ? `Ready · ${session.provider} · ${session.model}`
@@ -494,8 +554,13 @@
       });
       codeInput.value = "";
       if (payload.correct) {
+        nextFloor = Number.isInteger(payload.next_floor) ? payload.next_floor : null;
         setCleared(true);
-        setStatus(`Floor ${activeFloor} cleared. Nicely done.`);
+        setStatus(
+          nextFloor
+            ? `Floor ${activeFloor} cleared. Floor ${nextFloor} is open below.`
+            : `Floor ${activeFloor} cleared. Nicely done.`
+        );
       } else {
         setCleared(false);
         vaultResult.textContent = "Not quite. This door is keeping its secret. Try again.";
@@ -520,6 +585,7 @@
   resetFloorButton.addEventListener("click", async () => {
     try {
       await api("/api/reset/floor", { method: "POST", body: "{}" });
+      nextFloor = null;
       await refreshState();
       codeInput.value = "";
       setCleared(false);
