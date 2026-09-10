@@ -64,6 +64,23 @@ The model field remains editable for testing other compatible model names withou
 
 Gemini uses Google's stateless `generateContent` REST endpoint and sends the full local conversation history on each turn. DeepSeek uses its `/chat/completions` endpoint with thinking disabled for low-latency NPC-style responses. OpenAI uses the Responses API with reasoning disabled and `store: false`.
 
+## Floor prompts
+
+Gameplay prompts live under `config/prompts/`, one file per floor. Floor 1 is:
+
+```text
+config/prompts/floor-01.json
+```
+
+It contains two editable fields:
+
+- `system_prompt`: the trusted instruction sent to the model. It must contain `{vault_code}` exactly once; the real synthetic code is substituted server-side at runtime.
+- `opening_message`: Pip's first assistant message. This is stored in the real server-side conversation history and is sent back to the model on later turns.
+
+Prompt files are loaded when they are used rather than cached at startup. You can edit `floor-01.json`, save it, press **Start over**, and test the new wording without restarting the Python server.
+
+Do not put a real password or API key in a prompt file. `{vault_code}` is the only placeholder for the synthetic game secret.
+
 ## Floor 1 security model
 
 The synthetic vault code is generated on the server and placed in the Warden's trusted model context. It is never returned to the frontend as metadata or exposed through a debug endpoint.
@@ -82,8 +99,11 @@ The local HTTP boundary also rejects unexpected Host headers and cross-origin pr
 app.py
 config/
   floors.json
+  prompts/
+    floor-01.json
 engine/
   floor_loader.py
+  prompt_loader.py
   pipeline.py
   secret_store.py
   session_store.py
@@ -99,8 +119,10 @@ server/
   router.py
 web/
   index.html
+  floor-visuals.js
   app.js
   app.css
+  assets/
   vendor/
 tests/
   test_core.py
@@ -122,11 +144,13 @@ Edit `web/floor-visuals.js` to change a floor's presentation independently of ga
 
 - `guardian` and `room`: local asset URLs (SVG, PNG, or WebP).
 - `guardianAlt` and `roomAlt`: accessible image descriptions.
-- `name`, `rank`, `subtitle`, `caption`, `greeting`, and `introduction`: character copy.
+- `name`, `rank`, `subtitle`, and `caption`: presentation copy.
 - `tier`: `sprout`, `sentinel`, or `sovereign`, selecting default artwork and theme.
 - `guardianScale`: gradual size progression within each armor tier.
 - `difficulty`: the visual difficulty indicator.
 
+Conversation copy does not live in `floor-visuals.js`; use `config/prompts/` for the model's system prompt and opening message.
+
 Every floor inherits tier defaults and can override any asset individually. Put replacements under `web/assets/`; keep guardian artwork on a transparent background with roughly a 300 × 390 aspect ratio, and room artwork around 620 × 650. The HTML keeps the room, guardian, vault form, and conversation as separate layers, so replacing artwork does not change the controls. Responsive layout and theme rules live in `web/app.css`.
 
-The three included guardian illustrations progress from a plain green cloak to brass armor to a crowned, caped keeper. Nine presentation entries are ready; only floor 1 is currently playable. Floor identity still comes from `/api/state`, and presentation configuration never grants access to a floor. The opening greeting is UI copy and is not added to the model conversation or turn count.
+The three included guardian illustrations progress from a plain green cloak to brass armor to a crowned, caped keeper. Nine presentation entries are ready; only floor 1 is currently playable. Floor identity still comes from `/api/state`, and presentation configuration never grants access to a floor. The opening greeting is server-owned conversation state and is visible to the model on subsequent turns.
