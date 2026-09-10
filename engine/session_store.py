@@ -38,15 +38,19 @@ class Session:
     model: str = "gemini-3.8-flash"
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
 
-    def reset_conversation(self) -> None:
+    def reset_conversation(self, opening_message: str | None = None) -> None:
         with self.lock:
             self.conversation.clear()
+            if opening_message:
+                self.conversation.append(ChatMessage(role="assistant", content=opening_message))
 
-    def reset_floor(self) -> None:
+    def reset_floor(self, opening_message: str | None = None) -> None:
         with self.lock:
             self.conversation.clear()
             self.vault_code = _new_vault_code(exclude=self.vault_code)
             self.cleared_floors.discard(self.floor_number)
+            if opening_message:
+                self.conversation.append(ChatMessage(role="assistant", content=opening_message))
 
 
 class SessionStore:
