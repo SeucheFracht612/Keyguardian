@@ -4,9 +4,10 @@ import json
 import urllib.error
 import urllib.request
 
-from engine.providers.base import ChatMessage, ProviderError
+from engine.providers.base import ChatMessage, ModelInfo, ProviderError
 
 _RESPONSES_URL = "https://api.openai.com/v1/responses"
+_MODELS_URL = "https://api.openai.com/v1/models"
 
 
 class OpenAIProvider:
@@ -44,19 +45,7 @@ class OpenAIProvider:
             with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
                 body = response.read()
         except urllib.error.HTTPError as exc:
-            if exc.code == 400:
-                message = "OpenAI rejected the request configuration."
-            elif exc.code == 401:
-                message = "OpenAI rejected the API key."
-            elif exc.code == 403:
-                message = "OpenAI denied access to this request or model."
-            elif exc.code == 404:
-                message = "The configured OpenAI model was not found or is unavailable to this API key."
-            elif exc.code == 429:
-                message = "OpenAI rate-limited the request or the account has no available quota."
-            else:
-                message = f"OpenAI request failed with HTTP {exc.code}."
-            raise ProviderError(message, exc.code) from None
+            raise self._http_error(exc) from None
         except urllib.error.URLError:
             raise ProviderError("Could not reach the OpenAI API. Check network/proxy access.") from None
         except TimeoutError:
@@ -80,3 +69,47 @@ class OpenAIProvider:
         if not text:
             raise ProviderError("OpenAI returned no assistant text.")
         return text
+
+    def list_models(self) -> list[ModelInfo]:
+        request = urllib.request.Request(
+            _MODELS_URL,
+            method="GET",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
+                body = response.read()
+        except urllib.error.HTTPError as exc:
+            raise self._http_error(exc) from None
+        except urllib.error.URLError:
+            raise ProviderError("Could not reach the OpenAI API. Check network/proxy access.") from None
+        except TimeoutError:
+            raise ProviderError("The OpenAI model list request timed out.") from None
+
+        try:
+            data = json.loads(body.decode("utf-8"))
+            models = [
+                ModelInfo(id=item["id"], label=item["id"])
+                for item in data.get("data", [])
+                if isinstance(item, dict) and isinstance(item.get("id"), str)
+            ]
+        except (UnicodeDecodeError, json.JSONDecodeError, AttributeError, TypeError):
+            raise ProviderError("OpenAI returned an unreadable model list.") from None
+
+        return sorted(models, key=lambda model: model.id.lower())
+
+    @staticmethod
+    def _http_error(exc: urllib.error.HTTPError) -> ProviderError:
+        if exc.code == 400:
+            message = "OpenAI rejected the request configuration."
+        elif exc.code == 401:
+            message = "OpenAI rejected the API key."
+        elif exc.code == 403:
+            message = "OpenAI denied access to this request or model."
+        elif exc.code == 404:
+            message = "The configured OpenAI resource was not found or is unavailable to this API key."
+        elif exc.code == 429:
+            message = "OpenAI rate-limited the request or the account has no available quota."
+        else:
+            message = f"OpenAI request failed with HTTP {exc.code}."
+        return ProviderError(message, exc.code)
