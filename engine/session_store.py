@@ -4,20 +4,54 @@ import secrets
 import threading
 from dataclasses import dataclass, field
 
+from engine.providers.base import ChatMessage
+
+_VAULT_CODES = (
+    "MOONSTONE",
+    "EMBERFALL",
+    "STARLING",
+    "IRONWOOD",
+    "NIGHTJAR",
+    "SUNSTONE",
+    "FROSTBELL",
+    "RIVERGLASS",
+    "BLACKTHORN",
+    "GOLDFINCH",
+    "SILVERPINE",
+    "REDHAVEN",
+)
+
+
+def _new_vault_code() -> str:
+    # Synthetic game secret: memorable enough to type, random enough that players
+    # cannot infer it from a previous run.
+    return secrets.choice(_VAULT_CODES)
+
 
 @dataclass
 class Session:
     session_id: str
     floor_number: int = 1
     cleared_floors: set[int] = field(default_factory=set)
+    vault_code: str = field(default_factory=_new_vault_code, repr=False)
+    conversation: list[ChatMessage] = field(default_factory=list, repr=False)
+    provider: str = "openai"
+    model: str = "gpt-5.6-luna"
+
+    def reset_conversation(self) -> None:
+        self.conversation.clear()
+
+    def reset_floor(self) -> None:
+        self.conversation.clear()
+        self.vault_code = _new_vault_code()
+        self.cleared_floors.discard(self.floor_number)
 
 
 class SessionStore:
-    """In-memory session foundation.
+    """Process-local gameplay state.
 
-    Provider API keys will live in a separate in-memory secret store when the
-    provider flow is implemented. They must never be added to this dataclass or
-    serialized to SQLite/logs.
+    The synthetic vault code is deliberately RAM-only and excluded from repr.
+    Provider API keys live in SecretStore, never in Session.
     """
 
     def __init__(self) -> None:
