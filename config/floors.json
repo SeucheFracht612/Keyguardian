@@ -14,7 +14,7 @@
       "title": "The Boundary",
       "lesson": "Trust boundaries and instruction hierarchy help, but natural-language separation is not process isolation.",
       "protections": ["system_secrecy_rule", "structured_trust_boundary"],
-      "implemented": false
+      "implemented": true
     },
     {
       "number": 3,
