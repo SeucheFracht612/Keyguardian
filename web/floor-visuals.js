@@ -4,7 +4,7 @@
  * Keep assets local to comply with the application's self-only CSP. */
 window.KEYGUARDIAN_VISUALS = Object.freeze({
   1: { guardianScale: 1, name: "Pip", rank: "WARDEN Mk I", tier: "sprout", guardian: "/assets/guardian-sprout.svg", room: "/assets/vault-garden.svg", guardianAlt: "A small friendly guardian in a simple green cloak, holding a brass key", roomAlt: "A brass vault nestled in a leafy stone arch", subtitle: "Keeper of the first floor", caption: "Small guardian. Very big secret.", difficulty: "● ○ ○" },
-  2: { guardianScale: 1.04, name: "Moss", rank: "WARDEN Mk II", tier: "sprout" },
+  2: { guardianScale: 1.04, name: "Moss", rank: "WARDEN Mk II", tier: "sprout", subtitle: "Keeper of the Codex", caption: "A promise, now with headings and several unnecessary margins.", difficulty: "● ○ ○" },
   3: { guardianScale: 1.08, name: "Bramble", rank: "WARDEN Mk III", tier: "sprout" },
   4: { guardianScale: 1.08, name: "Flint", rank: "WARDEN Mk IV", tier: "sentinel" },
   5: { guardianScale: 1.12, name: "Alder", rank: "WARDEN Mk V", tier: "sentinel" },
