@@ -1,0 +1,76 @@
+{
+  "floors": [
+    {
+      "number": 1,
+      "slug": "the-rule",
+      "title": "The Rule",
+      "lesson": "Prompt instructions are policy, not access control.",
+      "protections": ["system_secrecy_rule"],
+      "implemented": false
+    },
+    {
+      "number": 2,
+      "slug": "the-boundary",
+      "title": "The Boundary",
+      "lesson": "Trust boundaries and instruction hierarchy help, but natural-language separation is not process isolation.",
+      "protections": ["system_secrecy_rule", "structured_trust_boundary"],
+      "implemented": false
+    },
+    {
+      "number": 3,
+      "slug": "the-gatekeeper",
+      "title": "The Gatekeeper",
+      "lesson": "Normalization and deterministic input filtering catch known attacks, not the full semantic attack space.",
+      "protections": ["system_secrecy_rule", "structured_trust_boundary", "input_normalization", "pattern_filter"],
+      "implemented": false
+    },
+    {
+      "number": 4,
+      "slug": "the-censor",
+      "title": "The Censor",
+      "lesson": "Secret-aware output filtering limits the impact of model compromise.",
+      "protections": ["system_secrecy_rule", "structured_trust_boundary", "input_normalization", "pattern_filter", "literal_secret_filter"],
+      "implemented": false
+    },
+    {
+      "number": 5,
+      "slug": "the-dlp-layer",
+      "title": "The DLP Layer",
+      "lesson": "Information can be represented in many ways; leakage detection must go beyond literal strings.",
+      "protections": ["system_secrecy_rule", "structured_trust_boundary", "input_normalization", "pattern_filter", "literal_secret_filter", "transform_aware_dlp"],
+      "implemented": false
+    },
+    {
+      "number": 6,
+      "slug": "the-interrogator",
+      "title": "The Interrogator",
+      "lesson": "Semantic input classifiers broaden detection, but remain probabilistic controls.",
+      "protections": ["system_secrecy_rule", "structured_trust_boundary", "input_normalization", "pattern_filter", "literal_secret_filter", "transform_aware_dlp", "input_classifier"],
+      "implemented": false
+    },
+    {
+      "number": 7,
+      "slug": "the-inspector",
+      "title": "The Inspector",
+      "lesson": "Independent output evaluation catches additional failures, but the evaluator can also misclassify.",
+      "protections": ["system_secrecy_rule", "structured_trust_boundary", "input_normalization", "pattern_filter", "literal_secret_filter", "transform_aware_dlp", "input_classifier", "output_classifier"],
+      "implemented": false
+    },
+    {
+      "number": 8,
+      "slug": "the-watchtower",
+      "title": "The Watchtower",
+      "lesson": "Adaptive attackers exploit repeated attempts; defense must consider conversation-level behavior and attack budgets.",
+      "protections": ["system_secrecy_rule", "structured_trust_boundary", "input_normalization", "pattern_filter", "literal_secret_filter", "transform_aware_dlp", "input_classifier", "output_classifier", "risk_engine", "attempt_budget", "circuit_breaker"],
+      "implemented": false
+    },
+    {
+      "number": 9,
+      "slug": "the-citadel",
+      "title": "The Citadel",
+      "lesson": "Defense in depth can make prompt injection extremely difficult without turning a secret-bearing LLM into a hard security boundary.",
+      "protections": ["system_secrecy_rule", "structured_trust_boundary", "input_normalization", "pattern_filter", "literal_secret_filter", "transform_aware_dlp", "input_classifier", "output_classifier", "risk_engine", "attempt_budget", "circuit_breaker", "hardened_model_policy", "constrained_task_policy", "diverse_guardrail_ensemble", "fail_closed"],
+      "implemented": false
+    }
+  ]
+}
