@@ -52,6 +52,23 @@ class Session:
             if opening_message:
                 self.conversation.append(ChatMessage(role="assistant", content=opening_message))
 
+    def enter_floor(self, floor_number: int, opening_message: str | None = None) -> None:
+        """Enter another authorized floor with a fresh synthetic secret.
+
+        Authorization belongs to the API because it depends on configured floor
+        availability and progression. Session only owns the state transition.
+        Cleared floors remain recorded so earlier progress is not lost.
+        """
+        if floor_number < 1:
+            raise ValueError("Floor number must be positive")
+        with self.lock:
+            previous_code = self.vault_code
+            self.floor_number = floor_number
+            self.vault_code = _new_vault_code(exclude=previous_code)
+            self.conversation.clear()
+            if opening_message:
+                self.conversation.append(ChatMessage(role="assistant", content=opening_message))
+
     def has_revisable_exchange(self) -> bool:
         """Return whether the conversation ends in a user/assistant exchange.
 
