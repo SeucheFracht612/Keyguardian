@@ -3,29 +3,14 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
 
-from engine.providers.base import ChatMessage
+from engine.providers.base import ChatMessage, ProviderError
 
 _RESPONSES_URL = "https://api.openai.com/v1/responses"
 
 
-@dataclass
-class ProviderError(Exception):
-    message: str
-    status_code: int | None = None
-
-    def __str__(self) -> str:
-        return self.message
-
-
 class OpenAIProvider:
-    """Small stdlib-only OpenAI Responses API adapter.
-
-    Keyguardian uses the model as a low-latency conversational NPC, not as a
-    long-running reasoning task. Requests therefore disable reasoning and keep
-    response verbosity low. Responses are not stored by the API.
-    """
+    """Small stdlib-only OpenAI Responses API adapter."""
 
     name = "openai"
 
@@ -59,7 +44,6 @@ class OpenAIProvider:
             with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
                 body = response.read()
         except urllib.error.HTTPError as exc:
-            # Never propagate request headers or a raw provider response into logs/UI.
             if exc.code == 400:
                 message = "OpenAI rejected the request configuration."
             elif exc.code == 401:
