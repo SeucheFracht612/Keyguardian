@@ -10,6 +10,15 @@ class ChatMessage:
     content: str
 
 
+@dataclass(frozen=True)
+class ModelInfo:
+    id: str
+    label: str
+
+    def public_dict(self) -> dict[str, str]:
+        return {"id": self.id, "label": self.label}
+
+
 @dataclass
 class ProviderError(Exception):
     message: str
@@ -23,4 +32,7 @@ class Provider(Protocol):
     name: str
 
     def complete(self, *, messages: list[ChatMessage], model: str) -> str:
+        ...
+
+    def list_models(self) -> list[ModelInfo]:
         ...
