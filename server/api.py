@@ -83,6 +83,10 @@ class Api:
             )
             return
 
+        if path == "/api/models":
+            self._list_models(handler, session, payload, is_new)
+            return
+
         if path == "/api/keys":
             self._configure_key(handler, session, payload, is_new)
             return
@@ -129,6 +133,49 @@ class Api:
             handler,
             404,
             {"error": "not_found"},
+            session_id=session.session_id if is_new else None,
+        )
+
+    def _list_models(
+        self,
+        handler: BaseHTTPRequestHandler,
+        session: Session,
+        payload: dict[str, Any],
+        is_new: bool,
+    ) -> None:
+        provider_name = payload.get("provider", "gemini")
+        api_key = payload.get("api_key")
+
+        if provider_name not in SUPPORTED_PROVIDERS:
+            self._json(handler, 400, {"error": "unsupported_provider"})
+            return
+        if not isinstance(api_key, str) or not api_key.strip():
+            self._json(handler, 400, {"error": "missing_api_key"})
+            return
+        if len(api_key) > 2048:
+            self._json(handler, 400, {"error": "invalid_api_key"})
+            return
+
+        try:
+            provider = create_provider(provider_name, api_key.strip())
+            models = provider.list_models()
+        except ProviderError as exc:
+            self._json(
+                handler,
+                502,
+                {"error": "provider_error", "message": exc.message},
+                session_id=session.session_id if is_new else None,
+            )
+            return
+
+        self._json(
+            handler,
+            200,
+            {
+                "provider": provider_name,
+                "default_model": default_model(provider_name),
+                "models": [model.public_dict() for model in models],
+            },
             session_id=session.session_id if is_new else None,
         )
 
