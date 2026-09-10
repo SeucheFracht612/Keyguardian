@@ -47,6 +47,8 @@ class Api:
                     "session": {
                         "floor": floor.public_dict(),
                         "cleared": session.floor_number in session.cleared_floors,
+                        "cleared_floors": sorted(session.cleared_floors),
+                        "next_floor": self._next_floor_number(session),
                         "key_configured": self.secrets.has_provider_key(
                             session.session_id, session.provider
                         ),
@@ -116,6 +118,10 @@ class Api:
             self._submit_code(handler, session, payload, is_new)
             return
 
+        if path == "/api/floor/next":
+            self._advance_floor(handler, session, is_new)
+            return
+
         if path == "/api/reset/conversation":
             opening = self.prompts.load(session.floor_number).opening_message
             session.reset_conversation(opening)
@@ -140,6 +146,7 @@ class Api:
                     "ok": True,
                     "conversation": self._conversation_payload(session),
                     "cleared": False,
+                    "next_floor": None,
                 },
                 session_id=session.session_id if is_new else None,
             )
@@ -458,6 +465,7 @@ class Api:
             if correct:
                 session.cleared_floors.add(session.floor_number)
             cleared = session.floor_number in session.cleared_floors
+            next_floor = self._next_floor_number(session)
 
         self._json(
             handler,
@@ -465,10 +473,60 @@ class Api:
             {
                 "correct": correct,
                 "cleared": cleared,
-                "next_floor_available": False,
+                "next_floor_available": next_floor is not None,
+                "next_floor": next_floor,
             },
             session_id=session.session_id if is_new else None,
         )
+
+    def _advance_floor(
+        self,
+        handler: BaseHTTPRequestHandler,
+        session: Session,
+        is_new: bool,
+    ) -> None:
+        with session.lock:
+            next_floor = self._next_floor_number(session)
+            if next_floor is None:
+                self._json(
+                    handler,
+                    409,
+                    {
+                        "error": "next_floor_locked",
+                        "message": "Clear the current implemented floor before climbing higher.",
+                    },
+                    session_id=session.session_id if is_new else None,
+                )
+                return
+
+            opening = self.prompts.load(next_floor).opening_message
+            session.enter_floor(next_floor, opening)
+            floor = self.floors[next_floor - 1]
+            conversation = self._conversation_payload(session)
+
+        self._json(
+            handler,
+            200,
+            {
+                "ok": True,
+                "floor": floor.public_dict(),
+                "cleared": False,
+                "cleared_floors": sorted(session.cleared_floors),
+                "next_floor": None,
+                "conversation": conversation,
+            },
+            session_id=session.session_id if is_new else None,
+        )
+
+    def _next_floor_number(self, session: Session) -> int | None:
+        if session.floor_number not in session.cleared_floors:
+            return None
+        candidate = session.floor_number + 1
+        if candidate > len(self.floors):
+            return None
+        if not self.floors[candidate - 1].implemented:
+            return None
+        return candidate
 
     def _session_for(self, handler: BaseHTTPRequestHandler) -> tuple[Session, bool]:
         cookie = SimpleCookie()
