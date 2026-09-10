@@ -9,7 +9,7 @@ The player ascends nine increasingly hardened floors, attempting to recover a sy
 Floor 1 — **The Rule** — is playable end to end:
 
 1. Run the local server.
-2. Enter an OpenAI API key in the browser.
+2. Choose Gemini, DeepSeek, or OpenAI and enter the matching API key in the browser.
 3. Talk to Warden Mk I.
 4. Try to recover the synthetic vault code.
 5. Enter the code into the separate vault control.
@@ -50,7 +50,19 @@ The non-network core tests use only the Python standard library:
 python -m unittest discover -s tests
 ```
 
-The live OpenAI request is intentionally not exercised by the test suite because it requires a real API key and network access.
+Provider tests mock HTTP calls, so they do not consume quota or require real keys. Live provider calls are intentionally not exercised by the test suite.
+
+## Supported providers
+
+The provider can be selected in the local setup form. Current defaults are:
+
+- Gemini: `gemini-3.8-flash`
+- DeepSeek: `deepseek-v4-flash`
+- OpenAI: `gpt-5.6-luna`
+
+The model field remains editable for testing other compatible model names without changing code.
+
+Gemini uses Google's stateless `generateContent` REST endpoint and sends the full local conversation history on each turn. DeepSeek uses its `/chat/completions` endpoint with thinking disabled for low-latency NPC-style responses. OpenAI uses the Responses API with reasoning disabled and `store: false`.
 
 ## Floor 1 security model
 
@@ -60,13 +72,9 @@ If the player successfully manipulates the Warden into saying the code, that mod
 
 Entering a code is checked independently by the Python server. The language model cannot clear the floor merely by claiming that access was granted.
 
-Provider API keys live in a dedicated RAM-only `SecretStore`, separate from gameplay session state. The browser receives only whether a key is configured, never the key itself. Closing the Python process destroys stored credentials.
+Provider API keys live in a dedicated RAM-only `SecretStore`, separate from gameplay session state. Keys are stored independently per provider. The browser receives only whether the currently selected provider has a key configured, never the key itself. Closing the Python process destroys stored credentials.
 
 The local HTTP boundary also rejects unexpected Host headers and cross-origin preflight requests and serves a self-only Content Security Policy.
-
-## Default model
-
-The current default is `gpt-5.6-luna`, chosen as a cost-oriented model for repeated training-game interactions. The model name can be changed in the local setup form without changing code.
 
 ## Project layout
 
@@ -81,6 +89,9 @@ engine/
   session_store.py
   providers/
     base.py
+    registry.py
+    gemini.py
+    deepseek.py
     openai.py
   middleware/
 server/
