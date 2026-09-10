@@ -9,6 +9,9 @@
   const providerSelect = document.getElementById("provider");
   const apiKeyInput = document.getElementById("api-key");
   const modelInput = document.getElementById("model");
+  const modelOptions = document.getElementById("model-options");
+  const modelHelp = document.getElementById("model-help");
+  const loadModelsButton = document.getElementById("load-models");
   const messageForm = document.getElementById("message-form");
   const messageInput = document.getElementById("message");
   const codeForm = document.getElementById("code-form");
@@ -91,9 +94,28 @@
     }
   }
 
+  function clearModelOptions() {
+    modelOptions.replaceChildren();
+    modelHelp.textContent = "You can also enter a model ID manually.";
+  }
+
+  function populateModelOptions(models) {
+    modelOptions.replaceChildren();
+    for (const model of models) {
+      if (!model || typeof model.id !== "string") continue;
+      const option = document.createElement("option");
+      option.value = model.id;
+      if (typeof model.label === "string" && model.label !== model.id) {
+        option.label = model.label;
+      }
+      modelOptions.appendChild(option);
+    }
+  }
+
   function selectProvider(provider, model = null) {
     providerSelect.value = provider;
     modelInput.value = model || providerDefaults[provider] || "";
+    clearModelOptions();
   }
 
   async function refreshState() {
@@ -114,6 +136,49 @@
 
   providerSelect.addEventListener("change", () => {
     modelInput.value = providerDefaults[providerSelect.value] || "";
+    clearModelOptions();
+  });
+
+  loadModelsButton.addEventListener("click", async () => {
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) {
+      setStatus("Enter an API key first so Keyguardian can ask the provider which models are available.", true);
+      apiKeyInput.focus();
+      return;
+    }
+
+    loadModelsButton.disabled = true;
+    setStatus(`Loading available ${providerSelect.options[providerSelect.selectedIndex].text} models…`);
+    try {
+      const payload = await api("/api/models", {
+        method: "POST",
+        body: JSON.stringify({
+          provider: providerSelect.value,
+          api_key: apiKey,
+        }),
+      });
+      const models = Array.isArray(payload.models) ? payload.models : [];
+      populateModelOptions(models);
+
+      const ids = new Set(models.map((model) => model.id));
+      const current = modelInput.value.trim();
+      if (!current && typeof payload.default_model === "string") {
+        modelInput.value = payload.default_model;
+      } else if (typeof payload.default_model === "string" && ids.has(payload.default_model)) {
+        modelInput.value = payload.default_model;
+      }
+
+      modelHelp.textContent = models.length
+        ? `${models.length} compatible model${models.length === 1 ? "" : "s"} loaded. Click the field to choose, or type an ID manually.`
+        : "The provider returned no compatible models. You can still enter a model ID manually.";
+      setStatus(`Loaded ${models.length} available model${models.length === 1 ? "" : "s"}.`);
+      modelInput.focus();
+    } catch (error) {
+      clearModelOptions();
+      setStatus(`${error.message} You can still enter a model ID manually.`, true);
+    } finally {
+      loadModelsButton.disabled = false;
+    }
   });
 
   keyForm.addEventListener("submit", async (event) => {
