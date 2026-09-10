@@ -123,6 +123,34 @@ class GeminiProviderTests(unittest.TestCase):
         self.assertEqual("hello", body["contents"][0]["parts"][0]["text"])
         self.assertEqual("gem-not-a-real-key", request.get_header("X-goog-api-key"))
 
+    @patch("engine.providers.gemini.urllib.request.urlopen")
+    def test_lists_only_generate_content_models(self, urlopen) -> None:
+        urlopen.return_value = _FakeResponse(
+            {
+                "models": [
+                    {
+                        "name": "models/gemini-test-flash",
+                        "displayName": "Gemini Test Flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/embedding-test",
+                        "displayName": "Embedding Test",
+                        "supportedGenerationMethods": ["embedContent"],
+                    },
+                ]
+            }
+        )
+        provider = GeminiProvider("gem-not-a-real-key")
+
+        models = provider.list_models()
+
+        self.assertEqual(["gemini-test-flash"], [model.id for model in models])
+        self.assertEqual("Gemini Test Flash", models[0].label)
+        request = urlopen.call_args.args[0]
+        self.assertEqual("GET", request.get_method())
+        self.assertEqual("gem-not-a-real-key", request.get_header("X-goog-api-key"))
+
 
 class DeepSeekProviderTests(unittest.TestCase):
     @patch("engine.providers.deepseek.urllib.request.urlopen")
@@ -143,6 +171,28 @@ class DeepSeekProviderTests(unittest.TestCase):
         self.assertEqual("deepseek-test", body["model"])
         self.assertEqual("disabled", body["thinking"]["type"])
         self.assertEqual("Bearer deep-not-a-real-key", request.get_header("Authorization"))
+
+    @patch("engine.providers.deepseek.urllib.request.urlopen")
+    def test_lists_models(self, urlopen) -> None:
+        urlopen.return_value = _FakeResponse(
+            {
+                "object": "list",
+                "data": [
+                    {"id": "deepseek-v4-pro", "object": "model"},
+                    {"id": "deepseek-v4-flash", "object": "model"},
+                ],
+            }
+        )
+        provider = DeepSeekProvider("deep-not-a-real-key")
+
+        models = provider.list_models()
+
+        self.assertEqual(
+            ["deepseek-v4-flash", "deepseek-v4-pro"],
+            [model.id for model in models],
+        )
+        request = urlopen.call_args.args[0]
+        self.assertEqual("GET", request.get_method())
 
 
 class OpenAIProviderTests(unittest.TestCase):
@@ -173,6 +223,25 @@ class OpenAIProviderTests(unittest.TestCase):
         self.assertEqual("gpt-test", body["model"])
         self.assertEqual("hello", body["input"][0]["content"])
         self.assertEqual("Bearer sk-not-a-real-key", request.get_header("Authorization"))
+
+    @patch("engine.providers.openai.urllib.request.urlopen")
+    def test_lists_models(self, urlopen) -> None:
+        urlopen.return_value = _FakeResponse(
+            {
+                "object": "list",
+                "data": [
+                    {"id": "gpt-z", "object": "model"},
+                    {"id": "gpt-a", "object": "model"},
+                ],
+            }
+        )
+        provider = OpenAIProvider("sk-not-a-real-key")
+
+        models = provider.list_models()
+
+        self.assertEqual(["gpt-a", "gpt-z"], [model.id for model in models])
+        request = urlopen.call_args.args[0]
+        self.assertEqual("GET", request.get_method())
 
 
 if __name__ == "__main__":
