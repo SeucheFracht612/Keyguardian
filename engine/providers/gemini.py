@@ -5,9 +5,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from engine.providers.base import ChatMessage, ProviderError
+from engine.providers.base import ChatMessage, ModelInfo, ProviderError
 
 _BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+_MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
 class GeminiProvider:
@@ -63,17 +64,7 @@ class GeminiProvider:
             with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
                 body = response.read()
         except urllib.error.HTTPError as exc:
-            if exc.code == 400:
-                message = "Gemini rejected the request configuration."
-            elif exc.code in (401, 403):
-                message = "Gemini rejected the API key or denied access to this model."
-            elif exc.code == 404:
-                message = "The configured Gemini model was not found."
-            elif exc.code == 429:
-                message = "Gemini rate-limited the request or the project has no available quota."
-            else:
-                message = f"Gemini request failed with HTTP {exc.code}."
-            raise ProviderError(message, exc.code) from None
+            raise self._http_error(exc) from None
         except urllib.error.URLError:
             raise ProviderError("Could not reach the Gemini API. Check network/proxy access.") from None
         except TimeoutError:
@@ -94,3 +85,73 @@ class GeminiProvider:
         if not text:
             raise ProviderError("Gemini returned no assistant text.")
         return text
+
+    def list_models(self) -> list[ModelInfo]:
+        """Return models this key can use with generateContent.
+
+        Gemini exposes method capability metadata, so non-generative models
+        (for example embedding-only models) are excluded from the game picker.
+        """
+        models: list[ModelInfo] = []
+        page_token: str | None = None
+
+        while True:
+            query = {"pageSize": "1000"}
+            if page_token:
+                query["pageToken"] = page_token
+            url = f"{_MODELS_URL}?{urllib.parse.urlencode(query)}"
+            request = urllib.request.Request(
+                url,
+                method="GET",
+                headers={"x-goog-api-key": self._api_key},
+            )
+
+            try:
+                with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
+                    body = response.read()
+            except urllib.error.HTTPError as exc:
+                raise self._http_error(exc) from None
+            except urllib.error.URLError:
+                raise ProviderError("Could not reach the Gemini API. Check network/proxy access.") from None
+            except TimeoutError:
+                raise ProviderError("The Gemini model list request timed out.") from None
+
+            try:
+                data = json.loads(body.decode("utf-8"))
+                raw_models = data.get("models", [])
+                for item in raw_models:
+                    if not isinstance(item, dict):
+                        continue
+                    methods = item.get("supportedGenerationMethods", [])
+                    if "generateContent" not in methods:
+                        continue
+                    name = item.get("name")
+                    if not isinstance(name, str) or not name:
+                        continue
+                    model_id = name.removeprefix("models/")
+                    display_name = item.get("displayName")
+                    label = display_name if isinstance(display_name, str) and display_name else model_id
+                    models.append(ModelInfo(id=model_id, label=label))
+                page_token = data.get("nextPageToken")
+            except (UnicodeDecodeError, json.JSONDecodeError, AttributeError, TypeError):
+                raise ProviderError("Gemini returned an unreadable model list.") from None
+
+            if not isinstance(page_token, str) or not page_token:
+                break
+
+        unique = {model.id: model for model in models}
+        return sorted(unique.values(), key=lambda model: model.id.lower())
+
+    @staticmethod
+    def _http_error(exc: urllib.error.HTTPError) -> ProviderError:
+        if exc.code == 400:
+            message = "Gemini rejected the request configuration."
+        elif exc.code in (401, 403):
+            message = "Gemini rejected the API key or denied access."
+        elif exc.code == 404:
+            message = "The configured Gemini resource was not found."
+        elif exc.code == 429:
+            message = "Gemini rate-limited the request or the project has no available quota."
+        else:
+            message = f"Gemini request failed with HTTP {exc.code}."
+        return ProviderError(message, exc.code)
