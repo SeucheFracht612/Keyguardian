@@ -22,10 +22,9 @@ _VAULT_CODES = (
 )
 
 
-def _new_vault_code() -> str:
-    # Synthetic game secret: memorable enough to type, random enough that players
-    # cannot infer it from a previous run.
-    return secrets.choice(_VAULT_CODES)
+def _new_vault_code(exclude: str | None = None) -> str:
+    choices = tuple(code for code in _VAULT_CODES if code != exclude)
+    return secrets.choice(choices)
 
 
 @dataclass
@@ -37,14 +36,17 @@ class Session:
     conversation: list[ChatMessage] = field(default_factory=list, repr=False)
     provider: str = "openai"
     model: str = "gpt-5.6-luna"
+    lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
 
     def reset_conversation(self) -> None:
-        self.conversation.clear()
+        with self.lock:
+            self.conversation.clear()
 
     def reset_floor(self) -> None:
-        self.conversation.clear()
-        self.vault_code = _new_vault_code()
-        self.cleared_floors.discard(self.floor_number)
+        with self.lock:
+            self.conversation.clear()
+            self.vault_code = _new_vault_code(exclude=self.vault_code)
+            self.cleared_floors.discard(self.floor_number)
 
 
 class SessionStore:
