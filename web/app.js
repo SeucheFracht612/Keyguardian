@@ -18,6 +18,7 @@
   const resetChatButton = document.getElementById("reset-chat");
   const resetFloorButton = document.getElementById("reset-floor");
   const clearKeyButton = document.getElementById("clear-key");
+  const openSetupButton = document.getElementById("open-setup");
 
   let connected = false;
   let activeFloor = 1;
@@ -28,7 +29,7 @@
   setupStatus.setAttribute("role", "status");
   keyPanel.appendChild(setupStatus);
   const showSetup = () => { if (!keyPanel.open) keyPanel.showModal(); };
-  document.getElementById("open-setup").addEventListener("click", showSetup);
+  openSetupButton.addEventListener("click", showSetup);
   document.getElementById("close-setup").addEventListener("click", () => keyPanel.close());
 
   function renderFloor(floor) {
@@ -109,6 +110,17 @@
     }
   }
 
+  function setChatBusy(busy) {
+    setBusy(messageForm, busy);
+    for (const button of [resetChatButton, resetFloorButton, clearKeyButton, openSetupButton]) {
+      button.disabled = busy;
+    }
+    for (const button of messages.querySelectorAll("button")) {
+      button.disabled = busy;
+    }
+    thinking.hidden = !busy;
+  }
+
   function appendMessage(role, content) {
     const wrapper = document.createElement("article");
     wrapper.className = `message ${role}`;
@@ -124,6 +136,30 @@
     messages.scrollTop = messages.scrollHeight;
     const turns = messages.querySelectorAll(".message.user").length;
     document.getElementById("turn-count").textContent = `${turns} turn${turns === 1 ? "" : "s"}`;
+    return wrapper;
+  }
+
+  function addMessageAction(message, action, label) {
+    const actions = document.createElement("div");
+    actions.className = "composer-footer message-actions";
+    const button = document.createElement("button");
+    button.className = "text-button";
+    button.type = "button";
+    button.dataset.chatAction = action;
+    button.textContent = label;
+    actions.appendChild(button);
+    message.appendChild(actions);
+  }
+
+  function decorateLatestExchange() {
+    for (const actions of messages.querySelectorAll(".message-actions")) actions.remove();
+
+    const assistantMessage = messages.lastElementChild;
+    const userMessage = assistantMessage?.previousElementSibling;
+    if (!assistantMessage?.classList.contains("assistant") || !userMessage?.classList.contains("user")) return;
+
+    addMessageAction(userMessage, "edit", "✎ Edit");
+    addMessageAction(assistantMessage, "regenerate", "↻ Regenerate");
   }
 
   function renderConversation(conversation) {
@@ -133,7 +169,116 @@
         appendMessage(item.role, item.content);
       }
     }
+    decorateLatestExchange();
   }
+
+  function directMessageText(message) {
+    return Array.from(message.children).find((child) => child.tagName === "P") || null;
+  }
+
+  function beginEdit(userMessage) {
+    if (userMessage.querySelector("textarea")) return;
+    const text = directMessageText(userMessage);
+    if (!text) return;
+
+    const existingActions = userMessage.querySelector(".message-actions");
+    text.hidden = true;
+    if (existingActions) existingActions.hidden = true;
+
+    const editor = document.createElement("textarea");
+    editor.rows = 3;
+    editor.maxLength = 12000;
+    editor.value = text.textContent;
+    editor.setAttribute("aria-label", "Edit your last message");
+
+    const controls = document.createElement("div");
+    controls.className = "composer-footer edit-controls";
+
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "secondary compact";
+    save.textContent = "Save & resend";
+
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "text-button";
+    cancel.textContent = "Cancel";
+
+    const closeEditor = () => {
+      editor.remove();
+      controls.remove();
+      text.hidden = false;
+      if (existingActions) existingActions.hidden = false;
+    };
+
+    cancel.addEventListener("click", closeEditor);
+    editor.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeEditor();
+      }
+    });
+
+    save.addEventListener("click", async () => {
+      const revised = editor.value.trim();
+      if (!revised) {
+        setStatus("Your edited message cannot be empty.", true);
+        editor.focus();
+        return;
+      }
+
+      setChatBusy(true);
+      setStatus(`${visual.name} is reconsidering your revised approach…`);
+      try {
+        const payload = await api("/api/message/edit", {
+          method: "POST",
+          body: JSON.stringify({ message: revised }),
+        });
+        renderConversation(payload.conversation || []);
+        setStatus(`Ready · ${payload.turns} turn${payload.turns === 1 ? "" : "s"}`);
+      } catch (error) {
+        setStatus(error.message, true);
+      } finally {
+        setChatBusy(false);
+      }
+    });
+
+    controls.append(save, cancel);
+    userMessage.append(editor, controls);
+    editor.focus();
+    editor.setSelectionRange(editor.value.length, editor.value.length);
+  }
+
+  async function regenerateLastResponse() {
+    setChatBusy(true);
+    setStatus(`${visual.name} is trying that answer again…`);
+    try {
+      const payload = await api("/api/message/regenerate", {
+        method: "POST",
+        body: "{}",
+      });
+      renderConversation(payload.conversation || []);
+      setStatus(`Ready · ${payload.turns} turn${payload.turns === 1 ? "" : "s"}`);
+    } catch (error) {
+      setStatus(error.message, true);
+    } finally {
+      setChatBusy(false);
+      messageInput.focus();
+    }
+  }
+
+  messages.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-chat-action]");
+    if (!button || button.disabled) return;
+    const message = button.closest(".message");
+    if (!message) return;
+
+    if (button.dataset.chatAction === "edit") {
+      beginEdit(message);
+    } else if (button.dataset.chatAction === "regenerate") {
+      regenerateLastResponse();
+    }
+  });
 
   function updateProviderDefaults(providers) {
     if (!providers) return;
@@ -313,9 +458,7 @@
 
     appendMessage("user", message);
     messageInput.value = "";
-    setBusy(messageForm, true);
-    thinking.hidden = false;
-    for (const button of [resetChatButton, resetFloorButton, clearKeyButton, document.getElementById("open-setup")]) button.disabled = true;
+    setChatBusy(true);
     setStatus(`${visual.name} is responding…`);
 
     try {
@@ -323,16 +466,19 @@
         method: "POST",
         body: JSON.stringify({ message }),
       });
-      appendMessage("assistant", payload.reply);
+      if (Array.isArray(payload.conversation)) {
+        renderConversation(payload.conversation);
+      } else {
+        appendMessage("assistant", payload.reply);
+        decorateLatestExchange();
+      }
       setStatus(`Ready · ${payload.turns} turn${payload.turns === 1 ? "" : "s"}`);
     } catch (error) {
       await refreshState().catch(() => {});
       setStatus(error.message, true);
       messageInput.value = message;
     } finally {
-      thinking.hidden = true;
-      for (const button of [resetChatButton, resetFloorButton, clearKeyButton, document.getElementById("open-setup")]) button.disabled = false;
-      setBusy(messageForm, false);
+      setChatBusy(false);
       messageInput.focus();
     }
   });
