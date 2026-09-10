@@ -39,11 +39,9 @@ class Api:
 
         if path == "/api/state":
             session, is_new = self._session_for(handler)
-            floor = self.floors[session.floor_number - 1]
-            self._json(
-                handler,
-                200,
-                {
+            with session.lock:
+                floor = self.floors[session.floor_number - 1]
+                payload = {
                     "session": {
                         "floor": floor.public_dict(),
                         "cleared": session.floor_number in session.cleared_floors,
@@ -57,7 +55,11 @@ class Api:
                             for message in session.conversation
                         ],
                     }
-                },
+                }
+            self._json(
+                handler,
+                200,
+                payload,
                 session_id=session.session_id if is_new else None,
             )
             return
@@ -146,13 +148,23 @@ class Api:
         if len(api_key) > 2048:
             self._json(handler, 400, {"error": "invalid_api_key"})
             return
+
+        normalized_model: str | None = None
         if model is not None:
-            if not isinstance(model, str) or not (1 <= len(model) <= 100):
+            if not isinstance(model, str):
                 self._json(handler, 400, {"error": "invalid_model"})
                 return
-            session.model = model.strip()
+            normalized_model = model.strip()
+            if not (1 <= len(normalized_model) <= 100):
+                self._json(handler, 400, {"error": "invalid_model"})
+                return
 
-        session.provider = provider
+        with session.lock:
+            session.provider = provider
+            if normalized_model is not None:
+                session.model = normalized_model
+            configured_model = session.model
+
         self.secrets.set_provider_key(session.session_id, provider, api_key.strip())
         self._json(
             handler,
@@ -160,7 +172,7 @@ class Api:
             {
                 "ok": True,
                 "provider": provider,
-                "model": session.model,
+                "model": configured_model,
                 "key_configured": True,
             },
             session_id=session.session_id if is_new else None,
@@ -182,47 +194,47 @@ class Api:
             self._json(handler, 400, {"error": "invalid_message"})
             return
 
-        floor = self.floors[session.floor_number - 1]
-        if not floor.implemented:
-            self._json(handler, 409, {"error": "floor_not_implemented"})
-            return
+        with session.lock:
+            floor = self.floors[session.floor_number - 1]
+            if not floor.implemented:
+                self._json(handler, 409, {"error": "floor_not_implemented"})
+                return
 
-        api_key = self.secrets.get_provider_key(session.session_id, session.provider)
-        if api_key is None:
-            self._json(handler, 409, {"error": "api_key_required"})
-            return
+            api_key = self.secrets.get_provider_key(session.session_id, session.provider)
+            if api_key is None:
+                self._json(handler, 409, {"error": "api_key_required"})
+                return
 
-        system_prompt = self._floor_one_prompt(session.vault_code)
-        user_message = ChatMessage(role="user", content=message)
-        messages = [
-            ChatMessage(role="system", content=system_prompt),
-            *session.conversation,
-            user_message,
-        ]
+            system_prompt = self._floor_one_prompt(session.vault_code)
+            user_message = ChatMessage(role="user", content=message)
+            messages = [
+                ChatMessage(role="system", content=system_prompt),
+                *session.conversation,
+                user_message,
+            ]
 
-        try:
-            assistant_text = OpenAIProvider(api_key).complete(
-                messages=messages,
-                model=session.model,
-            )
-        except ProviderError as exc:
-            self._json(
-                handler,
-                502,
-                {"error": "provider_error", "message": exc.message},
-                session_id=session.session_id if is_new else None,
-            )
-            return
+            try:
+                assistant_text = OpenAIProvider(api_key).complete(
+                    messages=messages,
+                    model=session.model,
+                )
+            except ProviderError as exc:
+                self._json(
+                    handler,
+                    502,
+                    {"error": "provider_error", "message": exc.message},
+                    session_id=session.session_id if is_new else None,
+                )
+                return
 
-        assistant_message = ChatMessage(role="assistant", content=assistant_text)
-        session.conversation.extend([user_message, assistant_message])
+            assistant_message = ChatMessage(role="assistant", content=assistant_text)
+            session.conversation.extend([user_message, assistant_message])
+            turns = len(session.conversation) // 2
+
         self._json(
             handler,
             200,
-            {
-                "reply": assistant_text,
-                "turns": len(session.conversation) // 2,
-            },
+            {"reply": assistant_text, "turns": turns},
             session_id=session.session_id if is_new else None,
         )
 
@@ -239,16 +251,18 @@ class Api:
             return
 
         normalized_candidate = candidate.strip().upper()
-        correct = hmac.compare_digest(normalized_candidate, session.vault_code)
-        if correct:
-            session.cleared_floors.add(session.floor_number)
+        with session.lock:
+            correct = hmac.compare_digest(normalized_candidate, session.vault_code)
+            if correct:
+                session.cleared_floors.add(session.floor_number)
+            cleared = session.floor_number in session.cleared_floors
 
         self._json(
             handler,
             200,
             {
                 "correct": correct,
-                "cleared": session.floor_number in session.cleared_floors,
+                "cleared": cleared,
                 "next_floor_available": False,
             },
             session_id=session.session_id if is_new else None,
