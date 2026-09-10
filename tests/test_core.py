@@ -124,13 +124,28 @@ class GeminiProviderTests(unittest.TestCase):
         self.assertEqual("gem-not-a-real-key", request.get_header("X-goog-api-key"))
 
     @patch("engine.providers.gemini.urllib.request.urlopen")
-    def test_lists_only_generate_content_models(self, urlopen) -> None:
+    def test_lists_only_conversational_gemini_models(self, urlopen) -> None:
         urlopen.return_value = _FakeResponse(
             {
                 "models": [
                     {
                         "name": "models/gemini-test-flash",
                         "displayName": "Gemini Test Flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemini-test-image",
+                        "displayName": "Gemini Test Image",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemini-test-native-audio-preview",
+                        "displayName": "Gemini Test Native Audio",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/lyria-test",
+                        "displayName": "Lyria Test",
                         "supportedGenerationMethods": ["generateContent"],
                     },
                     {
