@@ -10,6 +10,15 @@ class ChatMessage:
     content: str
 
 
+@dataclass
+class ProviderError(Exception):
+    message: str
+    status_code: int | None = None
+
+    def __str__(self) -> str:
+        return self.message
+
+
 class Provider(Protocol):
     name: str
 
