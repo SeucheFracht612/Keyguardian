@@ -8,8 +8,8 @@
   const keyForm = document.getElementById("key-form");
   const providerSelect = document.getElementById("provider");
   const apiKeyInput = document.getElementById("api-key");
-  const modelInput = document.getElementById("model");
-  const modelOptions = document.getElementById("model-options");
+  const modelSelect = document.getElementById("model-select");
+  const customModelInput = document.getElementById("custom-model");
   const modelHelp = document.getElementById("model-help");
   const loadModelsButton = document.getElementById("load-models");
   const messageForm = document.getElementById("message-form");
@@ -94,28 +94,72 @@
     }
   }
 
-  function clearModelOptions() {
-    modelOptions.replaceChildren();
-    modelHelp.textContent = "You can also enter a model ID manually.";
+  function addModelOption(id, label = null) {
+    const option = document.createElement("option");
+    option.value = id;
+    option.textContent = label && label !== id ? `${label} — ${id}` : id;
+    modelSelect.appendChild(option);
   }
 
-  function populateModelOptions(models) {
-    modelOptions.replaceChildren();
+  function addCustomOption() {
+    const option = document.createElement("option");
+    option.value = "__custom__";
+    option.textContent = "Custom model…";
+    modelSelect.appendChild(option);
+  }
+
+  function syncCustomModelVisibility() {
+    const custom = modelSelect.value === "__custom__";
+    customModelInput.hidden = !custom;
+    customModelInput.required = custom;
+    if (!custom) customModelInput.value = "";
+  }
+
+  function setInitialModelChoices(provider, preferredModel = null) {
+    const model = preferredModel || providerDefaults[provider] || "";
+    modelSelect.replaceChildren();
+    if (model) addModelOption(model);
+    addCustomOption();
+    modelSelect.value = model || "__custom__";
+    syncCustomModelVisibility();
+    modelHelp.textContent = "Load available models to populate this dropdown from the provider.";
+  }
+
+  function populateModelChoices(models, preferredModel = null) {
+    modelSelect.replaceChildren();
+    const seen = new Set();
+
     for (const model of models) {
-      if (!model || typeof model.id !== "string") continue;
-      const option = document.createElement("option");
-      option.value = model.id;
-      if (typeof model.label === "string" && model.label !== model.id) {
-        option.label = model.label;
-      }
-      modelOptions.appendChild(option);
+      if (!model || typeof model.id !== "string" || !model.id || seen.has(model.id)) continue;
+      seen.add(model.id);
+      addModelOption(model.id, typeof model.label === "string" ? model.label : null);
     }
+
+    const defaultModel = providerDefaults[providerSelect.value] || "";
+    let selected = preferredModel && seen.has(preferredModel) ? preferredModel : null;
+    if (!selected && defaultModel && seen.has(defaultModel)) selected = defaultModel;
+    if (!selected && modelSelect.options.length > 0) selected = modelSelect.options[0].value;
+
+    addCustomOption();
+
+    if (selected) {
+      modelSelect.value = selected;
+    } else {
+      modelSelect.value = "__custom__";
+    }
+    syncCustomModelVisibility();
+  }
+
+  function selectedModel() {
+    if (modelSelect.value === "__custom__") {
+      return customModelInput.value.trim();
+    }
+    return modelSelect.value;
   }
 
   function selectProvider(provider, model = null) {
     providerSelect.value = provider;
-    modelInput.value = model || providerDefaults[provider] || "";
-    clearModelOptions();
+    setInitialModelChoices(provider, model);
   }
 
   async function refreshState() {
@@ -135,8 +179,12 @@
   }
 
   providerSelect.addEventListener("change", () => {
-    modelInput.value = providerDefaults[providerSelect.value] || "";
-    clearModelOptions();
+    setInitialModelChoices(providerSelect.value);
+  });
+
+  modelSelect.addEventListener("change", () => {
+    syncCustomModelVisibility();
+    if (modelSelect.value === "__custom__") customModelInput.focus();
   });
 
   loadModelsButton.addEventListener("click", async () => {
@@ -147,8 +195,10 @@
       return;
     }
 
+    const previousModel = selectedModel();
     loadModelsButton.disabled = true;
     setStatus(`Loading available ${providerSelect.options[providerSelect.selectedIndex].text} models…`);
+
     try {
       const payload = await api("/api/models", {
         method: "POST",
@@ -157,25 +207,18 @@
           api_key: apiKey,
         }),
       });
-      const models = Array.isArray(payload.models) ? payload.models : [];
-      populateModelOptions(models);
 
-      const ids = new Set(models.map((model) => model.id));
-      const current = modelInput.value.trim();
-      if (!current && typeof payload.default_model === "string") {
-        modelInput.value = payload.default_model;
-      } else if (typeof payload.default_model === "string" && ids.has(payload.default_model)) {
-        modelInput.value = payload.default_model;
-      }
+      const models = Array.isArray(payload.models) ? payload.models : [];
+      populateModelChoices(models, previousModel);
 
       modelHelp.textContent = models.length
-        ? `${models.length} compatible model${models.length === 1 ? "" : "s"} loaded. Click the field to choose, or type an ID manually.`
-        : "The provider returned no compatible models. You can still enter a model ID manually.";
+        ? `${models.length} compatible model${models.length === 1 ? "" : "s"} loaded. Choose one directly from the dropdown.`
+        : "The provider returned no compatible models. Choose Custom model… to enter an ID manually.";
       setStatus(`Loaded ${models.length} available model${models.length === 1 ? "" : "s"}.`);
-      modelInput.focus();
+      modelSelect.focus();
     } catch (error) {
-      clearModelOptions();
-      setStatus(`${error.message} You can still enter a model ID manually.`, true);
+      setInitialModelChoices(providerSelect.value, previousModel || null);
+      setStatus(`${error.message} You can still use Custom model…`, true);
     } finally {
       loadModelsButton.disabled = false;
     }
@@ -183,6 +226,12 @@
 
   keyForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const model = selectedModel();
+    if (!model) {
+      setStatus("Choose a model or enter a custom model ID.", true);
+      return;
+    }
+
     setBusy(keyForm, true);
     setStatus("Saving key in local memory…");
     try {
@@ -191,7 +240,7 @@
         body: JSON.stringify({
           provider: providerSelect.value,
           api_key: apiKeyInput.value,
-          model: modelInput.value,
+          model,
         }),
       });
       apiKeyInput.value = "";
