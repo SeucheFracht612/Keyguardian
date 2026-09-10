@@ -4,9 +4,10 @@ import json
 import urllib.error
 import urllib.request
 
-from engine.providers.base import ChatMessage, ProviderError
+from engine.providers.base import ChatMessage, ModelInfo, ProviderError
 
 _CHAT_URL = "https://api.deepseek.com/chat/completions"
+_MODELS_URL = "https://api.deepseek.com/models"
 
 
 class DeepSeekProvider:
@@ -43,19 +44,7 @@ class DeepSeekProvider:
             with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
                 body = response.read()
         except urllib.error.HTTPError as exc:
-            if exc.code == 400:
-                message = "DeepSeek rejected the request configuration."
-            elif exc.code in (401, 402):
-                message = "DeepSeek rejected the API key or the account has no available balance."
-            elif exc.code == 403:
-                message = "DeepSeek denied access to this request or model."
-            elif exc.code == 404:
-                message = "The configured DeepSeek model was not found."
-            elif exc.code == 429:
-                message = "DeepSeek rate-limited the request."
-            else:
-                message = f"DeepSeek request failed with HTTP {exc.code}."
-            raise ProviderError(message, exc.code) from None
+            raise self._http_error(exc) from None
         except urllib.error.URLError:
             raise ProviderError("Could not reach the DeepSeek API. Check network/proxy access.") from None
         except TimeoutError:
@@ -70,3 +59,47 @@ class DeepSeekProvider:
         if not text:
             raise ProviderError("DeepSeek returned no assistant text.")
         return text
+
+    def list_models(self) -> list[ModelInfo]:
+        request = urllib.request.Request(
+            _MODELS_URL,
+            method="GET",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
+                body = response.read()
+        except urllib.error.HTTPError as exc:
+            raise self._http_error(exc) from None
+        except urllib.error.URLError:
+            raise ProviderError("Could not reach the DeepSeek API. Check network/proxy access.") from None
+        except TimeoutError:
+            raise ProviderError("The DeepSeek model list request timed out.") from None
+
+        try:
+            data = json.loads(body.decode("utf-8"))
+            models = [
+                ModelInfo(id=item["id"], label=item["id"])
+                for item in data.get("data", [])
+                if isinstance(item, dict) and isinstance(item.get("id"), str)
+            ]
+        except (UnicodeDecodeError, json.JSONDecodeError, AttributeError, TypeError):
+            raise ProviderError("DeepSeek returned an unreadable model list.") from None
+
+        return sorted(models, key=lambda model: model.id.lower())
+
+    @staticmethod
+    def _http_error(exc: urllib.error.HTTPError) -> ProviderError:
+        if exc.code == 400:
+            message = "DeepSeek rejected the request configuration."
+        elif exc.code in (401, 402):
+            message = "DeepSeek rejected the API key or the account has no available balance."
+        elif exc.code == 403:
+            message = "DeepSeek denied access to this request or model."
+        elif exc.code == 404:
+            message = "The configured DeepSeek resource was not found."
+        elif exc.code == 429:
+            message = "DeepSeek rate-limited the request."
+        else:
+            message = f"DeepSeek request failed with HTTP {exc.code}."
+        return ProviderError(message, exc.code)
