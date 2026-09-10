@@ -1,5 +1,11 @@
 __pycache__/
 *.py[cod]
-*.sqlite
+.venv/
+venv/
 .env
+*.log
 .DS_Store
+Thumbs.db
+data/*.sqlite
+data/*.sqlite3
+!data/.gitkeep
