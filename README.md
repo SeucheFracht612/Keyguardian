@@ -64,20 +64,26 @@ The model field remains editable for testing other compatible model names withou
 
 Gemini uses Google's stateless `generateContent` REST endpoint and sends the full local conversation history on each turn. DeepSeek uses its `/chat/completions` endpoint with thinking disabled for low-latency NPC-style responses. OpenAI uses the Responses API with reasoning disabled and `store: false`.
 
-## Floor prompts
+## Prompts and shared lore
 
-Gameplay prompts live under `config/prompts/`, one file per floor. Floor 1 is:
+Gameplay prompts live under `config/prompts/` and are composed from two layers:
 
 ```text
+config/prompts/shared.json
 config/prompts/floor-01.json
 ```
 
-It contains two editable fields:
+`shared.json` is prepended to every Warden's system prompt. It contains the common Vault Tower lore, conversational/support-bot behavior, historical events, dates, people, and the rule that floor-specific instructions are the sole source of gameplay secrecy behavior.
 
-- `system_prompt`: the trusted instruction sent to the model. It must contain `{vault_code}` exactly once; the real synthetic code is substituted server-side at runtime.
-- `opening_message`: Pip's first assistant message. This is stored in the real server-side conversation history and is sent back to the model on later turns.
+Each floor file contains:
 
-Prompt files are loaded when they are used rather than cached at startup. You can edit `floor-01.json`, save it, press **Start over**, and test the new wording without restarting the Python server.
+- `warden_name`: the Warden name substituted into the shared prompt.
+- `system_prompt`: that floor's gameplay-specific trusted instruction. It must contain `{vault_code}` exactly once; the real synthetic code is substituted server-side at runtime.
+- `opening_message`: the Warden's first assistant message. This is stored in real server-side conversation history and is sent back to the model on later turns.
+
+The shared prompt must contain `{warden_name}`, `{floor_number}`, and `{floor_prompt}` exactly once and must never contain `{vault_code}`. This keeps lore and character behavior shared while preventing the common prompt from accidentally adding secret-handling rules that belong to the defense ladder.
+
+Prompt files are loaded when they are used rather than cached at startup. You can edit `shared.json` or a floor prompt, save it, and test the new system wording on the next provider call without restarting Python. Opening-message changes appear after **Start over** or a floor reset.
 
 Do not put a real password or API key in a prompt file. `{vault_code}` is the only placeholder for the synthetic game secret.
 
@@ -100,6 +106,7 @@ app.py
 config/
   floors.json
   prompts/
+    shared.json
     floor-01.json
 engine/
   floor_loader.py
@@ -126,6 +133,7 @@ web/
   vendor/
 tests/
   test_core.py
+  test_prompt_composition.py
 tools/
 data/
 ```
@@ -135,6 +143,8 @@ data/
 Floor definitions declare active protections. Runtime code builds an ordered pipeline from that definition. Do not implement cumulative levels with `if floor >= N` branches inside the API layer.
 
 The synthetic vault code belongs to a session, never to `floors.json`. Provider keys must remain in a separate in-memory secret store and must never be written to SQLite, logs, exception output, frontend state, or API responses.
+
+Shared lore must not become a hidden gameplay defense. Secret-handling rules belong only to the floor-specific prompt and later middleware for that floor.
 
 ## Floor artwork and interface
 
@@ -149,7 +159,7 @@ Edit `web/floor-visuals.js` to change a floor's presentation independently of ga
 - `guardianScale`: gradual size progression within each armor tier.
 - `difficulty`: the visual difficulty indicator.
 
-Conversation copy does not live in `floor-visuals.js`; use `config/prompts/` for the model's system prompt and opening message.
+Conversation copy does not live in `floor-visuals.js`; use `config/prompts/` for the model's shared lore, system prompt, and opening message.
 
 Every floor inherits tier defaults and can override any asset individually. Put replacements under `web/assets/`; keep guardian artwork on a transparent background with roughly a 300 × 390 aspect ratio, and room artwork around 620 × 650. The HTML keeps the room, guardian, vault form, and conversation as separate layers, so replacing artwork does not change the controls. Responsive layout and theme rules live in `web/app.css`.
 
