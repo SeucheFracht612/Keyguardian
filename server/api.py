@@ -7,8 +7,8 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any
 
 from engine.floor_loader import FloorLoader
-from engine.providers.base import ChatMessage
-from engine.providers.openai import OpenAIProvider, ProviderError
+from engine.providers.base import ChatMessage, ProviderError
+from engine.providers.registry import SUPPORTED_PROVIDERS, create_provider, default_model
 from engine.secret_store import SecretStore
 from engine.session_store import Session, SessionStore
 
@@ -54,7 +54,11 @@ class Api:
                             {"role": message.role, "content": message.content}
                             for message in session.conversation
                         ],
-                    }
+                    },
+                    "providers": {
+                        provider: {"default_model": default_model(provider)}
+                        for provider in SUPPORTED_PROVIDERS
+                    },
                 }
             self._json(
                 handler,
@@ -135,11 +139,11 @@ class Api:
         payload: dict[str, Any],
         is_new: bool,
     ) -> None:
-        provider = payload.get("provider", "openai")
+        provider = payload.get("provider", "gemini")
         api_key = payload.get("api_key")
         model = payload.get("model")
 
-        if provider != "openai":
+        if provider not in SUPPORTED_PROVIDERS:
             self._json(handler, 400, {"error": "unsupported_provider"})
             return
         if not isinstance(api_key, str) or not api_key.strip():
@@ -149,21 +153,23 @@ class Api:
             self._json(handler, 400, {"error": "invalid_api_key"})
             return
 
-        normalized_model: str | None = None
-        if model is not None:
-            if not isinstance(model, str):
-                self._json(handler, 400, {"error": "invalid_model"})
-                return
+        if model is None or (isinstance(model, str) and not model.strip()):
+            normalized_model = default_model(provider)
+        elif isinstance(model, str):
             normalized_model = model.strip()
             if not (1 <= len(normalized_model) <= 100):
                 self._json(handler, 400, {"error": "invalid_model"})
                 return
+        else:
+            self._json(handler, 400, {"error": "invalid_model"})
+            return
 
         with session.lock:
+            provider_changed = session.provider != provider
             session.provider = provider
-            if normalized_model is not None:
-                session.model = normalized_model
-            configured_model = session.model
+            session.model = normalized_model
+            if provider_changed:
+                session.conversation.clear()
 
         self.secrets.set_provider_key(session.session_id, provider, api_key.strip())
         self._json(
@@ -172,7 +178,7 @@ class Api:
             {
                 "ok": True,
                 "provider": provider,
-                "model": configured_model,
+                "model": normalized_model,
                 "key_configured": True,
             },
             session_id=session.session_id if is_new else None,
@@ -214,7 +220,8 @@ class Api:
             ]
 
             try:
-                assistant_text = OpenAIProvider(api_key).complete(
+                provider = create_provider(session.provider, api_key)
+                assistant_text = provider.complete(
                     messages=messages,
                     model=session.model,
                 )
