@@ -21,7 +21,7 @@
 
     <section id="key-panel" class="panel">
       <h2>Configure AI provider</h2>
-      <p>Your API key is sent only to this local Python process, stored in RAM, and discarded when the server stops.</p>
+      <p>Your API key is sent only to this local Python process, stored in RAM after configuration, and discarded when the server stops.</p>
       <form id="key-form" class="stack">
         <label>
           Provider
@@ -37,7 +37,12 @@
         </label>
         <label>
           Model
-          <input id="model" type="text" autocomplete="off" spellcheck="false" value="gemini-3.8-flash">
+          <div class="model-picker">
+            <input id="model" type="text" list="model-options" autocomplete="off" spellcheck="false" value="gemini-3.8-flash">
+            <button id="load-models" type="button" class="secondary compact">Load available models</button>
+          </div>
+          <datalist id="model-options"></datalist>
+          <small id="model-help">You can also enter a model ID manually.</small>
         </label>
         <button type="submit">Use this key</button>
       </form>
