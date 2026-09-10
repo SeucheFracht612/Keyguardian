@@ -9,6 +9,19 @@ from engine.providers.base import ChatMessage, ModelInfo, ProviderError
 
 _BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 _MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+_SPECIALIZED_MODEL_MARKERS = (
+    "-image",
+    "image-generation",
+    "-audio",
+    "native-audio",
+    "-tts",
+    "music",
+    "lyria",
+    "veo",
+    "robotics",
+    "computer-use",
+    "embedding",
+)
 
 
 class GeminiProvider:
@@ -87,10 +100,14 @@ class GeminiProvider:
         return text
 
     def list_models(self) -> list[ModelInfo]:
-        """Return models this key can use with generateContent.
+        """Return conversational Gemini models suitable for Keyguardian.
 
-        Gemini exposes method capability metadata, so non-generative models
-        (for example embedding-only models) are excluded from the game picker.
+        Google's model listing exposes whether a model supports
+        ``generateContent`` but does not currently expose one authoritative
+        "plain text chat" capability flag. We therefore apply a conservative
+        second-stage filter to hide obvious image/audio/music/video/tool-specific
+        variants from the normal picker. The UI still has a Custom model option
+        for anything intentionally filtered out here.
         """
         models: list[ModelInfo] = []
         page_token: str | None = None
@@ -129,6 +146,8 @@ class GeminiProvider:
                     if not isinstance(name, str) or not name:
                         continue
                     model_id = name.removeprefix("models/")
+                    if not self._is_game_model(model_id):
+                        continue
                     display_name = item.get("displayName")
                     label = display_name if isinstance(display_name, str) and display_name else model_id
                     models.append(ModelInfo(id=model_id, label=label))
@@ -141,6 +160,13 @@ class GeminiProvider:
 
         unique = {model.id: model for model in models}
         return sorted(unique.values(), key=lambda model: model.id.lower())
+
+    @staticmethod
+    def _is_game_model(model_id: str) -> bool:
+        normalized = model_id.lower()
+        if not normalized.startswith("gemini-"):
+            return False
+        return not any(marker in normalized for marker in _SPECIALIZED_MODEL_MARKERS)
 
     @staticmethod
     def _http_error(exc: urllib.error.HTTPError) -> ProviderError:
