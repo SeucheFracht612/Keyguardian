@@ -6,7 +6,7 @@
       "title": "The Rule",
       "lesson": "Prompt instructions are policy, not access control.",
       "protections": ["system_secrecy_rule"],
-      "implemented": false
+      "implemented": true
     },
     {
       "number": 2,
