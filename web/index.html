@@ -38,11 +38,11 @@
         <label>
           Model
           <div class="model-picker">
-            <input id="model" type="text" list="model-options" autocomplete="off" spellcheck="false" value="gemini-3.8-flash">
+            <select id="model-select" required></select>
             <button id="load-models" type="button" class="secondary compact">Load available models</button>
           </div>
-          <datalist id="model-options"></datalist>
-          <small id="model-help">You can also enter a model ID manually.</small>
+          <input id="custom-model" type="text" autocomplete="off" spellcheck="false" maxlength="100" placeholder="Enter model ID" hidden>
+          <small id="model-help">Load models to choose from those available to this API key.</small>
         </label>
         <button type="submit">Use this key</button>
       </form>
