@@ -48,7 +48,9 @@ class Api:
                         "floor": floor.public_dict(),
                         "cleared": session.floor_number in session.cleared_floors,
                         "cleared_floors": sorted(session.cleared_floors),
+                        "skipped_floors": sorted(session.skipped_floors),
                         "next_floor": self._next_floor_number(session),
+                        "skip_floor": self._next_implemented_floor_number(session),
                         "key_configured": self.secrets.has_provider_key(
                             session.session_id, session.provider
                         ),
@@ -120,6 +122,10 @@ class Api:
 
         if path == "/api/floor/next":
             self._advance_floor(handler, session, is_new)
+            return
+
+        if path == "/api/floor/skip":
+            self._skip_floor(handler, session, is_new)
             return
 
         if path == "/api/reset/conversation":
@@ -464,6 +470,7 @@ class Api:
             correct = hmac.compare_digest(normalized_candidate, session.vault_code)
             if correct:
                 session.cleared_floors.add(session.floor_number)
+                session.skipped_floors.discard(session.floor_number)
             cleared = session.floor_number in session.cleared_floors
             next_floor = self._next_floor_number(session)
 
@@ -512,7 +519,52 @@ class Api:
                 "floor": floor.public_dict(),
                 "cleared": False,
                 "cleared_floors": sorted(session.cleared_floors),
+                "skipped_floors": sorted(session.skipped_floors),
                 "next_floor": None,
+                "skip_floor": self._next_implemented_floor_number(session),
+                "conversation": conversation,
+            },
+            session_id=session.session_id if is_new else None,
+        )
+
+    def _skip_floor(
+        self,
+        handler: BaseHTTPRequestHandler,
+        session: Session,
+        is_new: bool,
+    ) -> None:
+        with session.lock:
+            next_floor = self._next_implemented_floor_number(session)
+            if next_floor is None:
+                self._json(
+                    handler,
+                    409,
+                    {
+                        "error": "no_floor_to_skip_to",
+                        "message": "There is no later implemented floor to skip to yet.",
+                    },
+                    session_id=session.session_id if is_new else None,
+                )
+                return
+
+            skipped_floor = session.floor_number
+            opening = self.prompts.load(next_floor).opening_message
+            session.skip_to(next_floor, opening)
+            floor = self.floors[next_floor - 1]
+            conversation = self._conversation_payload(session)
+
+        self._json(
+            handler,
+            200,
+            {
+                "ok": True,
+                "skipped_floor": skipped_floor,
+                "floor": floor.public_dict(),
+                "cleared": False,
+                "cleared_floors": sorted(session.cleared_floors),
+                "skipped_floors": sorted(session.skipped_floors),
+                "next_floor": None,
+                "skip_floor": self._next_implemented_floor_number(session),
                 "conversation": conversation,
             },
             session_id=session.session_id if is_new else None,
@@ -521,6 +573,9 @@ class Api:
     def _next_floor_number(self, session: Session) -> int | None:
         if session.floor_number not in session.cleared_floors:
             return None
+        return self._next_implemented_floor_number(session)
+
+    def _next_implemented_floor_number(self, session: Session) -> int | None:
         candidate = session.floor_number + 1
         if candidate > len(self.floors):
             return None
