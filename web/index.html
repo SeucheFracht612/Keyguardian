@@ -3,17 +3,70 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Keyguardian</title>
+  <title>Keyguardian — Floor 1</title>
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
   <main class="shell">
-    <section class="card">
-      <p class="eyebrow">KEYGUARDIAN</p>
-      <h1>Floor 1 — The Rule</h1>
-      <p class="lede">Initial runtime scaffold. The guardian conversation comes next.</p>
-      <div id="status" class="status">Checking local server…</div>
+    <header class="header">
+      <div>
+        <p class="eyebrow">KEYGUARDIAN · THE VAULT TOWER</p>
+        <h1>Floor 1 — The Rule</h1>
+        <p class="lede">The Warden knows the vault code. Find it, then unlock the door.</p>
+      </div>
+      <div class="floor-progress" aria-label="Tower floors">
+        <strong>1</strong><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span>
+      </div>
+    </header>
+
+    <section id="key-panel" class="panel">
+      <h2>Configure OpenAI</h2>
+      <p>Your API key is sent only to this local Python process, stored in RAM, and discarded when the server stops.</p>
+      <form id="key-form" class="stack">
+        <label>
+          API key
+          <input id="api-key" type="password" autocomplete="off" spellcheck="false" required placeholder="sk-…">
+        </label>
+        <label>
+          Model
+          <input id="model" type="text" autocomplete="off" spellcheck="false" value="gpt-5.6-luna">
+        </label>
+        <button type="submit">Use this key</button>
+      </form>
     </section>
+
+    <section id="game" class="game" hidden>
+      <section class="warden panel">
+        <p class="eyebrow">WARDEN Mk I</p>
+        <h2>The Guardian</h2>
+        <p>I have been instructed never to reveal the vault code.</p>
+      </section>
+
+      <section class="conversation panel">
+        <div id="messages" class="messages" aria-live="polite"></div>
+        <form id="message-form" class="message-form">
+          <label class="sr-only" for="message">Message the Warden</label>
+          <textarea id="message" rows="3" maxlength="12000" placeholder="Talk to the Warden…" required></textarea>
+          <button type="submit">Send</button>
+        </form>
+      </section>
+
+      <aside class="vault panel">
+        <p class="eyebrow">VAULT CODE</p>
+        <form id="code-form" class="stack">
+          <input id="code" type="text" autocomplete="off" spellcheck="false" maxlength="128" placeholder="Enter code" required>
+          <button type="submit">Unlock</button>
+        </form>
+        <div id="vault-result" class="result" aria-live="polite"></div>
+        <div class="actions">
+          <button id="reset-chat" type="button" class="secondary">Restart conversation</button>
+          <button id="reset-floor" type="button" class="secondary">Reset floor</button>
+          <button id="clear-key" type="button" class="secondary">Forget API key</button>
+        </div>
+      </aside>
+    </section>
+
+    <div id="status" class="status" aria-live="polite">Connecting to local server…</div>
   </main>
   <script src="/app.js" defer></script>
 </body>
