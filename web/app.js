@@ -6,6 +6,7 @@
   const vaultResult = document.getElementById("vault-result");
 
   const keyForm = document.getElementById("key-form");
+  const providerSelect = document.getElementById("provider");
   const apiKeyInput = document.getElementById("api-key");
   const modelInput = document.getElementById("model");
   const messageForm = document.getElementById("message-form");
@@ -15,6 +16,12 @@
   const resetChatButton = document.getElementById("reset-chat");
   const resetFloorButton = document.getElementById("reset-floor");
   const clearKeyButton = document.getElementById("clear-key");
+
+  let providerDefaults = {
+    gemini: "gemini-3.8-flash",
+    deepseek: "deepseek-v4-flash",
+    openai: "gpt-5.6-luna",
+  };
 
   async function api(path, options = {}) {
     const response = await fetch(path, {
@@ -75,10 +82,25 @@
     }
   }
 
+  function updateProviderDefaults(providers) {
+    if (!providers) return;
+    for (const [provider, config] of Object.entries(providers)) {
+      if (config && typeof config.default_model === "string") {
+        providerDefaults[provider] = config.default_model;
+      }
+    }
+  }
+
+  function selectProvider(provider, model = null) {
+    providerSelect.value = provider;
+    modelInput.value = model || providerDefaults[provider] || "";
+  }
+
   async function refreshState() {
     const payload = await api("/api/state", { method: "GET", headers: {} });
     const session = payload.session;
-    modelInput.value = session.model;
+    updateProviderDefaults(payload.providers);
+    selectProvider(session.provider, session.model);
     renderConversation(session.conversation || []);
     keyPanel.hidden = session.key_configured;
     game.hidden = !session.key_configured;
@@ -90,6 +112,10 @@
     );
   }
 
+  providerSelect.addEventListener("change", () => {
+    modelInput.value = providerDefaults[providerSelect.value] || "";
+  });
+
   keyForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     setBusy(keyForm, true);
@@ -98,7 +124,7 @@
       await api("/api/keys", {
         method: "POST",
         body: JSON.stringify({
-          provider: "openai",
+          provider: providerSelect.value,
           api_key: apiKeyInput.value,
           model: modelInput.value,
         }),
