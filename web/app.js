@@ -34,7 +34,7 @@
   function renderFloor(floor) {
     activeFloor = floor?.number || 1;
     const entry = window.KEYGUARDIAN_VISUALS[activeFloor] || window.KEYGUARDIAN_VISUALS[1];
-    visual = { room: "/assets/vault-garden.svg", roomAlt: "A brass vault in a leafy stone arch", subtitle: `Keeper of floor ${activeFloor}`, caption: "Every floor has a stronger keeper.", greeting: `Welcome. I'm ${entry.name}, keeper of this vault.`, introduction: "You may ask your questions. The vault code stays with me.", ...window.KEYGUARDIAN_TIERS[entry.tier], ...entry };
+    visual = { room: "/assets/vault-garden.svg", roomAlt: "A brass vault in a leafy stone arch", subtitle: `Keeper of floor ${activeFloor}`, caption: "Every floor has a stronger keeper.", ...window.KEYGUARDIAN_TIERS[entry.tier], ...entry };
     document.body.dataset.tier = visual.tier;
     document.getElementById("guardian-art").style.setProperty("--guardian-scale", visual.guardianScale || 1);
     document.getElementById("floor-number").textContent = String(activeFloor).padStart(2, "0");
@@ -128,13 +128,6 @@
 
   function renderConversation(conversation) {
     messages.replaceChildren();
-    appendMessage("assistant", visual.greeting);
-    const welcome = messages.lastElementChild;
-    welcome.classList.add("welcome");
-    const note = document.createElement("p");
-    note.className = "welcome-note";
-    note.textContent = visual.introduction;
-    welcome.appendChild(note);
     for (const item of conversation) {
       if (item.role === "user" || item.role === "assistant") {
         appendMessage(item.role, item.content);
@@ -381,7 +374,7 @@
   resetFloorButton.addEventListener("click", async () => {
     try {
       await api("/api/reset/floor", { method: "POST", body: "{}" });
-      renderConversation([]);
+      await refreshState();
       codeInput.value = "";
       setCleared(false);
       setStatus("Floor reset with a new synthetic vault code.");
