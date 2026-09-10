@@ -213,6 +213,11 @@ button.secondary {
   font-weight: 600;
 }
 
+button.compact {
+  width: auto;
+  white-space: nowrap;
+}
+
 .stack {
   display: grid;
   gap: 0.9rem;
@@ -222,6 +227,17 @@ button.secondary {
   display: grid;
   gap: 0.4rem;
   font-size: 0.9rem;
+}
+
+.model-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+}
+
+#model-help {
+  color: rgba(244, 241, 232, 0.58);
+  line-height: 1.4;
 }
 
 .result {
@@ -282,5 +298,9 @@ button.secondary {
 
   .conversation {
     min-height: 520px;
+  }
+
+  .model-picker {
+    grid-template-columns: 1fr;
   }
 }
