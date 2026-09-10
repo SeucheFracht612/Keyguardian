@@ -20,16 +20,24 @@
     </header>
 
     <section id="key-panel" class="panel">
-      <h2>Configure OpenAI</h2>
+      <h2>Configure AI provider</h2>
       <p>Your API key is sent only to this local Python process, stored in RAM, and discarded when the server stops.</p>
       <form id="key-form" class="stack">
         <label>
+          Provider
+          <select id="provider" required>
+            <option value="gemini">Gemini</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="openai">OpenAI</option>
+          </select>
+        </label>
+        <label>
           API key
-          <input id="api-key" type="password" autocomplete="off" spellcheck="false" required placeholder="sk-…">
+          <input id="api-key" type="password" autocomplete="off" spellcheck="false" required placeholder="Paste provider API key">
         </label>
         <label>
           Model
-          <input id="model" type="text" autocomplete="off" spellcheck="false" value="gpt-5.6-luna">
+          <input id="model" type="text" autocomplete="off" spellcheck="false" value="gemini-3.8-flash">
         </label>
         <button type="submit">Use this key</button>
       </form>
@@ -61,7 +69,7 @@
         <div class="actions">
           <button id="reset-chat" type="button" class="secondary">Restart conversation</button>
           <button id="reset-floor" type="button" class="secondary">Reset floor</button>
-          <button id="clear-key" type="button" class="secondary">Forget API key</button>
+          <button id="clear-key" type="button" class="secondary">Change provider / key</button>
         </div>
       </aside>
     </section>
