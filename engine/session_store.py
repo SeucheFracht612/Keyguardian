@@ -34,8 +34,8 @@ class Session:
     cleared_floors: set[int] = field(default_factory=set)
     vault_code: str = field(default_factory=_new_vault_code, repr=False)
     conversation: list[ChatMessage] = field(default_factory=list, repr=False)
-    provider: str = "openai"
-    model: str = "gpt-5.6-luna"
+    provider: str = "gemini"
+    model: str = "gemini-3.8-flash"
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
 
     def reset_conversation(self) -> None:
