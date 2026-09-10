@@ -52,6 +52,35 @@ class Session:
             if opening_message:
                 self.conversation.append(ChatMessage(role="assistant", content=opening_message))
 
+    def has_revisable_exchange(self) -> bool:
+        """Return whether the conversation ends in a user/assistant exchange.
+
+        The opening guardian message is intentionally not revisable. Keeping this
+        invariant here makes edit/regenerate endpoints safe as more floors add
+        richer conversation state later.
+        """
+        with self.lock:
+            return (
+                len(self.conversation) >= 3
+                and self.conversation[-2].role == "user"
+                and self.conversation[-1].role == "assistant"
+            )
+
+    def replace_last_reply(self, content: str) -> None:
+        with self.lock:
+            if not self.has_revisable_exchange():
+                raise ValueError("No completed exchange is available to regenerate")
+            self.conversation[-1] = ChatMessage(role="assistant", content=content)
+
+    def replace_last_exchange(self, user_content: str, assistant_content: str) -> None:
+        with self.lock:
+            if not self.has_revisable_exchange():
+                raise ValueError("No completed exchange is available to edit")
+            self.conversation[-2:] = [
+                ChatMessage(role="user", content=user_content),
+                ChatMessage(role="assistant", content=assistant_content),
+            ]
+
 
 class SessionStore:
     """Process-local gameplay state.
