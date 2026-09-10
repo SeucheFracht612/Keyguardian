@@ -17,6 +17,7 @@
   const codeInput = document.getElementById("code");
   const resetChatButton = document.getElementById("reset-chat");
   const resetFloorButton = document.getElementById("reset-floor");
+  const skipFloorButton = document.getElementById("skip-floor");
   const clearKeyButton = document.getElementById("clear-key");
   const openSetupButton = document.getElementById("open-setup");
   const floorProgress = document.getElementById("floor-progress");
@@ -25,6 +26,9 @@
   let activeFloor = 1;
   let currentFloorCleared = false;
   let nextFloor = null;
+  let skipFloorTarget = null;
+  let clearedFloors = new Set();
+  let skippedFloors = new Set();
   let visual = window.KEYGUARDIAN_VISUALS[1];
   const thinking = document.getElementById("thinking");
   const setupStatus = document.createElement("p");
@@ -40,7 +44,8 @@
     for (let n = 1; n <= 9; n++) {
       const item = document.createElement("li");
       const isCurrent = n === activeFloor;
-      const isCleared = n < activeFloor;
+      const isCleared = clearedFloors.has(n);
+      const isSkipped = skippedFloors.has(n);
       const isNext = n === nextFloor;
 
       if (isCurrent) item.setAttribute("aria-current", "step");
@@ -57,6 +62,7 @@
         node = document.createElement("span");
         if (isCurrent) item.title = "Current floor";
         else if (isCleared) item.title = "Cleared floor";
+        else if (isSkipped) item.title = "Skipped floor";
         else item.title = "Locked floor";
       }
       node.className = "floor-node";
@@ -65,6 +71,7 @@
       const label = document.createElement("span");
       if (isCurrent) label.textContent = "YOU ARE HERE";
       else if (isCleared) label.textContent = "Cleared";
+      else if (isSkipped) label.textContent = "Skipped";
       else if (isNext) label.textContent = "Open";
       else label.textContent = "Locked";
 
@@ -146,7 +153,7 @@
 
   function setChatBusy(busy) {
     setBusy(messageForm, busy);
-    for (const button of [resetChatButton, resetFloorButton, clearKeyButton, openSetupButton]) {
+    for (const button of [resetChatButton, resetFloorButton, skipFloorButton, clearKeyButton, openSetupButton]) {
       button.disabled = busy;
     }
     for (const button of messages.querySelectorAll("button")) {
@@ -421,7 +428,11 @@
     updateProviderDefaults(payload.providers);
     selectProvider(session.provider, session.model);
     currentFloorCleared = Boolean(session.cleared);
+    clearedFloors = new Set(Array.isArray(session.cleared_floors) ? session.cleared_floors : []);
+    skippedFloors = new Set(Array.isArray(session.skipped_floors) ? session.skipped_floors : []);
     nextFloor = Number.isInteger(session.next_floor) ? session.next_floor : null;
+    skipFloorTarget = Number.isInteger(session.skip_floor) ? session.skip_floor : null;
+    skipFloorButton.hidden = skipFloorTarget === null;
     renderFloor(session.floor);
     renderConversation(session.conversation || []);
     connected = session.key_configured;
@@ -554,6 +565,8 @@
       });
       codeInput.value = "";
       if (payload.correct) {
+        clearedFloors.add(activeFloor);
+        skippedFloors.delete(activeFloor);
         nextFloor = Number.isInteger(payload.next_floor) ? payload.next_floor : null;
         setCleared(true);
         setStatus(
@@ -569,6 +582,26 @@
       setStatus(error.message, true);
     } finally {
       setBusy(codeForm, false);
+    }
+  });
+
+  skipFloorButton.addEventListener("click", async () => {
+    if (skipFloorTarget === null) return;
+    const skippedFloor = activeFloor;
+    setChatBusy(true);
+    setBusy(codeForm, true);
+    setStatus(`Skipping Floor ${skippedFloor}…`);
+    try {
+      await api("/api/floor/skip", { method: "POST", body: "{}" });
+      codeInput.value = "";
+      await refreshState();
+      setStatus(`Floor ${skippedFloor} skipped. Floor ${activeFloor} · ${visual.name} is waiting.`);
+      messageInput.focus();
+    } catch (error) {
+      setStatus(error.message, true);
+    } finally {
+      setBusy(codeForm, false);
+      setChatBusy(false);
     }
   });
 
