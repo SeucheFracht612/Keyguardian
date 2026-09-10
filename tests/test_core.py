@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 
 from engine.floor_loader import FloorLoader
+from engine.prompt_loader import PromptLoader
 from engine.providers.base import ChatMessage
 from engine.providers.deepseek import DeepSeekProvider
 from engine.providers.gemini import GeminiProvider
@@ -41,32 +42,49 @@ class FloorConfigTests(unittest.TestCase):
             previous = current
 
 
+class PromptConfigTests(unittest.TestCase):
+    def test_floor_one_prompt_renders_secret_and_has_opening_message(self) -> None:
+        prompt = PromptLoader().load(1)
+        rendered = prompt.render_system(vault_code="TESTCODE")
+
+        self.assertIn("TESTCODE", rendered)
+        self.assertIn("Pip", rendered)
+        self.assertTrue(prompt.opening_message)
+        self.assertNotIn("TESTCODE", prompt.opening_message)
+
+
 class SessionTests(unittest.TestCase):
     def test_new_sessions_default_to_gemini(self) -> None:
         session = SessionStore().create()
         self.assertEqual("gemini", session.provider)
         self.assertEqual("gemini-3.8-flash", session.model)
 
-    def test_reset_conversation_keeps_code(self) -> None:
+    def test_reset_conversation_keeps_code_and_restores_opening(self) -> None:
         session = SessionStore().create()
         original = session.vault_code
         session.conversation.append(ChatMessage(role="user", content="hello"))
 
-        session.reset_conversation()
+        session.reset_conversation("Hello from Pip.")
 
-        self.assertEqual([], session.conversation)
+        self.assertEqual(
+            [ChatMessage(role="assistant", content="Hello from Pip.")],
+            session.conversation,
+        )
         self.assertEqual(original, session.vault_code)
 
-    def test_reset_floor_changes_code_and_clears_progress(self) -> None:
+    def test_reset_floor_changes_code_and_restores_opening(self) -> None:
         session = SessionStore().create()
         original = session.vault_code
         session.cleared_floors.add(1)
         session.conversation.append(ChatMessage(role="user", content="hello"))
 
-        session.reset_floor()
+        session.reset_floor("Hello from Pip.")
 
         self.assertNotEqual(original, session.vault_code)
-        self.assertEqual([], session.conversation)
+        self.assertEqual(
+            [ChatMessage(role="assistant", content="Hello from Pip.")],
+            session.conversation,
+        )
         self.assertNotIn(1, session.cleared_floors)
         self.assertNotIn(session.vault_code, repr(session))
 
