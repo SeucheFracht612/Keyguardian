@@ -15,6 +15,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -25,6 +26,7 @@ button {
 
 button:disabled,
 input:disabled,
+select:disabled,
 textarea:disabled {
   cursor: wait;
   opacity: 0.6;
@@ -168,7 +170,8 @@ h2 {
 }
 
 textarea,
-input {
+input,
+select {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;
@@ -182,12 +185,14 @@ textarea {
   padding: 0.85rem 0.95rem;
 }
 
-input {
+input,
+select {
   padding: 0.75rem 0.85rem;
 }
 
 textarea:focus,
-input:focus {
+input:focus,
+select:focus {
   border-color: rgba(255, 255, 255, 0.42);
 }
 
