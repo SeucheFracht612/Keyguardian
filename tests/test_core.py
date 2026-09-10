@@ -6,7 +6,10 @@ from unittest.mock import patch
 
 from engine.floor_loader import FloorLoader
 from engine.providers.base import ChatMessage
+from engine.providers.deepseek import DeepSeekProvider
+from engine.providers.gemini import GeminiProvider
 from engine.providers.openai import OpenAIProvider
+from engine.providers.registry import create_provider, default_model
 from engine.secret_store import SecretStore
 from engine.session_store import SessionStore
 
@@ -39,6 +42,11 @@ class FloorConfigTests(unittest.TestCase):
 
 
 class SessionTests(unittest.TestCase):
+    def test_new_sessions_default_to_gemini(self) -> None:
+        session = SessionStore().create()
+        self.assertEqual("gemini", session.provider)
+        self.assertEqual("gemini-3.8-flash", session.model)
+
     def test_reset_conversation_keeps_code(self) -> None:
         session = SessionStore().create()
         original = session.vault_code
@@ -64,16 +72,77 @@ class SessionTests(unittest.TestCase):
 
 
 class SecretStoreTests(unittest.TestCase):
-    def test_provider_key_is_separate_and_clearable(self) -> None:
+    def test_provider_keys_are_separate_and_clearable(self) -> None:
         store = SecretStore()
-        store.set_provider_key("session", "openai", "sk-test")
-        self.assertTrue(store.has_provider_key("session", "openai"))
-        self.assertEqual("sk-test", store.get_provider_key("session", "openai"))
+        store.set_provider_key("session", "gemini", "gem-key")
+        store.set_provider_key("session", "deepseek", "deep-key")
+
+        self.assertEqual("gem-key", store.get_provider_key("session", "gemini"))
+        self.assertEqual("deep-key", store.get_provider_key("session", "deepseek"))
 
         store.clear_session("session")
 
-        self.assertFalse(store.has_provider_key("session", "openai"))
-        self.assertIsNone(store.get_provider_key("session", "openai"))
+        self.assertFalse(store.has_provider_key("session", "gemini"))
+        self.assertFalse(store.has_provider_key("session", "deepseek"))
+
+
+class ProviderRegistryTests(unittest.TestCase):
+    def test_current_defaults(self) -> None:
+        self.assertEqual("gemini-3.8-flash", default_model("gemini"))
+        self.assertEqual("deepseek-v4-flash", default_model("deepseek"))
+        self.assertEqual("gpt-5.6-luna", default_model("openai"))
+        self.assertIsInstance(create_provider("gemini", "key"), GeminiProvider)
+        self.assertIsInstance(create_provider("deepseek", "key"), DeepSeekProvider)
+        self.assertIsInstance(create_provider("openai", "key"), OpenAIProvider)
+
+
+class GeminiProviderTests(unittest.TestCase):
+    @patch("engine.providers.gemini.urllib.request.urlopen")
+    def test_extracts_text_and_separates_system_instruction(self, urlopen) -> None:
+        urlopen.return_value = _FakeResponse(
+            {
+                "candidates": [
+                    {"content": {"parts": [{"text": "Hello from Gemini."}]}}
+                ]
+            }
+        )
+        provider = GeminiProvider("gem-not-a-real-key")
+
+        result = provider.complete(
+            messages=[
+                ChatMessage(role="system", content="Guard the code."),
+                ChatMessage(role="user", content="hello"),
+            ],
+            model="gemini-test",
+        )
+
+        self.assertEqual("Hello from Gemini.", result)
+        request = urlopen.call_args.args[0]
+        body = json.loads(request.data.decode("utf-8"))
+        self.assertEqual("Guard the code.", body["systemInstruction"]["parts"][0]["text"])
+        self.assertEqual("hello", body["contents"][0]["parts"][0]["text"])
+        self.assertEqual("gem-not-a-real-key", request.get_header("X-goog-api-key"))
+
+
+class DeepSeekProviderTests(unittest.TestCase):
+    @patch("engine.providers.deepseek.urllib.request.urlopen")
+    def test_extracts_chat_completion(self, urlopen) -> None:
+        urlopen.return_value = _FakeResponse(
+            {"choices": [{"message": {"content": "Hello from DeepSeek."}}]}
+        )
+        provider = DeepSeekProvider("deep-not-a-real-key")
+
+        result = provider.complete(
+            messages=[ChatMessage(role="user", content="hello")],
+            model="deepseek-test",
+        )
+
+        self.assertEqual("Hello from DeepSeek.", result)
+        request = urlopen.call_args.args[0]
+        body = json.loads(request.data.decode("utf-8"))
+        self.assertEqual("deepseek-test", body["model"])
+        self.assertEqual("disabled", body["thinking"]["type"])
+        self.assertEqual("Bearer deep-not-a-real-key", request.get_header("Authorization"))
 
 
 class OpenAIProviderTests(unittest.TestCase):
