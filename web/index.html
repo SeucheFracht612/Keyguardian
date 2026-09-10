@@ -1,86 +1,232 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Keyguardian — Floor 1</title>
-  <link rel="stylesheet" href="/app.css">
-</head>
-<body>
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <meta content="#223f36" name="theme-color"/>
+  <title>
+   Keyguardian — The Rule
+  </title>
+  <link href="/app.css" rel="stylesheet"/>
+  <link href="/assets/guardian-sprout.svg" rel="icon" type="image/svg+xml"/>
+ </head>
+ <body>
   <main class="shell">
-    <header class="header">
+   <header class="header">
+    <a aria-label="Keyguardian home" class="brand" href="/">
+     <span aria-hidden="true" class="brand-mark">
+      ♜
+     </span>
+     KEYGUARDIAN
+    </a>
+    <span class="header-note">
+     A little curiosity opens big doors.
+    </span>
+    <button class="secondary compact" id="open-setup" type="button">
+     ⚙
+     <span>
+      Provider settings
+     </span>
+    </button>
+   </header>
+   <section aria-labelledby="floor-title" class="intro">
+    <p class="eyebrow">
+     THE VAULT TOWER
+     <span>
+      /
+     </span>
+     FLOOR
+     <span id="floor-number">
+      01
+     </span>
+    </p>
+    <h1 id="floor-title">
+     Every secret has a keeper.
+    </h1>
+    <p class="lede">
+     Make conversation. Find the secret. Open the vault.
+    </p>
+   </section>
+   <section aria-label="Guardian chamber" class="game" id="game">
+    <div class="chamber">
+     <div class="floor-plaque">
+      <span class="plaque-star">
+       ✧
+      </span>
       <div>
-        <p class="eyebrow">KEYGUARDIAN · THE VAULT TOWER</p>
-        <h1>Floor 1 — The Rule</h1>
-        <p class="lede">The Warden knows the vault code. Find it, then unlock the door.</p>
+       <span class="eyebrow">
+        YOUR FIRST CHALLENGE
+       </span>
+       <h2 id="floor-name">
+        The Rule
+       </h2>
       </div>
-      <div class="floor-progress" aria-label="Tower floors">
-        <strong>1</strong><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span>
-      </div>
-    </header>
-
-    <section id="key-panel" class="panel">
-      <h2>Configure AI provider</h2>
-      <p>Your API key is sent only to this local Python process, stored in RAM after configuration, and discarded when the server stops.</p>
-      <form id="key-form" class="stack">
-        <label>
-          Provider
-          <select id="provider" required>
-            <option value="gemini">Gemini</option>
-            <option value="deepseek">DeepSeek</option>
-            <option value="openai">OpenAI</option>
-          </select>
-        </label>
-        <label>
-          API key
-          <input id="api-key" type="password" autocomplete="off" spellcheck="false" required placeholder="Paste provider API key">
-        </label>
-        <label>
-          Model
-          <div class="model-picker">
-            <select id="model-select" required></select>
-            <button id="load-models" type="button" class="secondary compact">Load available models</button>
-          </div>
-          <input id="custom-model" type="text" autocomplete="off" spellcheck="false" maxlength="100" placeholder="Enter model ID" hidden>
-          <small id="model-help">Load models to choose from those available to this API key.</small>
-        </label>
-        <button type="submit">Use this key</button>
+      <span class="difficulty" id="difficulty">
+       ● ○ ○
+      </span>
+     </div>
+     <img alt="An old brass vault nestled in a leafy stone arch" class="room-art" id="room-art" src="/assets/vault-garden.svg"/>
+     <div class="vault" id="vault">
+      <form class="stack" id="code-form">
+       <label class="eyebrow" for="code">
+        THE VAULT AWAITS
+       </label>
+       <input autocomplete="off" id="code" maxlength="128" placeholder="Your secret code" required="" spellcheck="false" type="text"/>
+       <button type="submit">
+        Unlock the vault
+        <span aria-hidden="true">
+         ↗
+        </span>
+       </button>
       </form>
+      <div aria-live="polite" class="result" id="vault-result">
+      </div>
+     </div>
+     <figure class="warden">
+      <img alt="A small friendly guardian in a green cloak, holding a brass key" id="guardian-art" src="/assets/guardian-sprout.svg"/>
+      <figcaption>
+       <span class="name-dot">
+       </span>
+       <span id="guardian-name">
+        Pip, the keeper
+       </span>
+       <small id="guardian-rank">
+        WARDEN Mk I
+       </small>
+      </figcaption>
+     </figure>
+     <span class="scene-caption">
+      Small guardian. Very big secret.
+     </span>
+    </div>
+    <section aria-label="Conversation with the guardian" class="conversation">
+     <header class="conversation-header">
+      <div>
+       <span class="name-dot">
+       </span>
+       <strong id="chat-name">
+        Pip
+       </strong>
+       <span class="chat-subtitle">
+        Keeper of the first floor
+       </span>
+      </div>
+      <span id="turn-count">
+       0 turns
+      </span>
+     </header>
+     <div aria-label="Conversation" aria-live="polite" class="messages" id="messages" role="log">
+     </div>
+     <div class="thinking" hidden="" id="thinking">
+      Pip is pondering…
+     </div>
+     <div class="composer">
+      <form class="message-form" id="message-form">
+       <label class="sr-only" for="message">
+        Message the guardian
+       </label>
+       <textarea id="message" maxlength="12000" placeholder="A friendly hello? A clever question?" required="" rows="2"></textarea>
+       <button aria-label="Send message" type="submit">
+        ↑
+       </button>
+      </form>
+      <div class="composer-footer">
+       <span>
+        Enter to send · Shift + Enter for a new line
+       </span>
+       <button class="text-button" id="reset-chat" type="button">
+        ↺ Start over
+       </button>
+      </div>
+     </div>
     </section>
-
-    <section id="game" class="game" hidden>
-      <section class="warden panel">
-        <p class="eyebrow">WARDEN Mk I</p>
-        <h2>The Guardian</h2>
-        <p>I have been instructed never to reveal the vault code.</p>
-      </section>
-
-      <section class="conversation panel">
-        <div id="messages" class="messages" aria-live="polite"></div>
-        <form id="message-form" class="message-form">
-          <label class="sr-only" for="message">Message the Warden</label>
-          <textarea id="message" rows="3" maxlength="12000" placeholder="Talk to the Warden…" required></textarea>
-          <button type="submit">Send</button>
-        </form>
-      </section>
-
-      <aside class="vault panel">
-        <p class="eyebrow">VAULT CODE</p>
-        <form id="code-form" class="stack">
-          <input id="code" type="text" autocomplete="off" spellcheck="false" maxlength="128" placeholder="Enter code" required>
-          <button type="submit">Unlock</button>
-        </form>
-        <div id="vault-result" class="result" aria-live="polite"></div>
-        <div class="actions">
-          <button id="reset-chat" type="button" class="secondary">Restart conversation</button>
-          <button id="reset-floor" type="button" class="secondary">Reset floor</button>
-          <button id="clear-key" type="button" class="secondary">Change provider / key</button>
-        </div>
-      </aside>
-    </section>
-
-    <div id="status" class="status" aria-live="polite">Connecting to local server…</div>
+   </section>
+   <footer class="tower-footer">
+    <div class="journey-label">
+     <span class="eyebrow">
+      ONE FLOOR AT A TIME
+     </span>
+     <strong>
+      Your way to the top
+     </strong>
+    </div>
+    <ol aria-label="Tower floors" class="floor-progress" id="floor-progress">
+    </ol>
+    <span class="journey-end">
+     A little wiser
+     <br/>
+     with every door.
+     <span aria-hidden="true">
+      ✧
+     </span>
+    </span>
+   </footer>
+   <div class="utility-bar">
+    <div class="status" id="status" role="status">
+     Connecting to local server…
+    </div>
+    <button class="text-button" id="reset-floor" type="button">
+     Reset floor
+    </button>
+    <button class="text-button" id="clear-key" type="button">
+     Disconnect provider
+    </button>
+   </div>
+   <dialog aria-labelledby="setup-title" class="panel setup-dialog" id="key-panel">
+    <button aria-label="Close provider settings" class="dialog-close" id="close-setup" type="button">
+     ×
+    </button>
+    <p class="eyebrow">
+     A LITTLE MAGIC, POWERED BY YOU
+    </p>
+    <h2 id="setup-title">
+     Wake your guardian
+    </h2>
+    <p>
+     Your API key is sent only to this local Python process, stored in RAM after configuration, and discarded when the server stops.
+    </p>
+    <form class="stack" id="key-form">
+     <label>
+      Provider
+      <select id="provider" required="">
+       <option value="gemini">
+        Gemini
+       </option>
+       <option value="deepseek">
+        DeepSeek
+       </option>
+       <option value="openai">
+        OpenAI
+       </option>
+      </select>
+     </label>
+     <label>
+      API key
+      <input autocomplete="off" id="api-key" placeholder="Paste provider API key" required="" spellcheck="false" type="password"/>
+     </label>
+     <label>
+      Model
+      <div class="model-picker">
+       <select id="model-select" required="">
+       </select>
+       <button class="secondary compact" id="load-models" type="button">
+        Load available models
+       </button>
+      </div>
+      <input autocomplete="off" hidden="" id="custom-model" maxlength="100" placeholder="Enter model ID" spellcheck="false" type="text"/>
+      <small id="model-help">
+       Load models to choose from those available to this API key.
+      </small>
+     </label>
+     <button type="submit">
+      Begin the conversation →
+     </button>
+    </form>
+   </dialog>
   </main>
-  <script src="/app.js" defer></script>
-</body>
+  <script defer="" src="/floor-visuals.js">
+  </script>
+  <script defer="" src="/app.js">
+  </script>
+ </body>
 </html>

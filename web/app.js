@@ -1,6 +1,5 @@
 (() => {
   const keyPanel = document.getElementById("key-panel");
-  const game = document.getElementById("game");
   const status = document.getElementById("status");
   const messages = document.getElementById("messages");
   const vaultResult = document.getElementById("vault-result");
@@ -19,6 +18,53 @@
   const resetChatButton = document.getElementById("reset-chat");
   const resetFloorButton = document.getElementById("reset-floor");
   const clearKeyButton = document.getElementById("clear-key");
+
+  let connected = false;
+  let activeFloor = 1;
+  let visual = window.KEYGUARDIAN_VISUALS[1];
+  const thinking = document.getElementById("thinking");
+  const setupStatus = document.createElement("p");
+  setupStatus.className = "status";
+  setupStatus.setAttribute("role", "status");
+  keyPanel.appendChild(setupStatus);
+  const showSetup = () => { if (!keyPanel.open) keyPanel.showModal(); };
+  document.getElementById("open-setup").addEventListener("click", showSetup);
+  document.getElementById("close-setup").addEventListener("click", () => keyPanel.close());
+
+  function renderFloor(floor) {
+    activeFloor = floor?.number || 1;
+    const entry = window.KEYGUARDIAN_VISUALS[activeFloor] || window.KEYGUARDIAN_VISUALS[1];
+    visual = { room: "/assets/vault-garden.svg", roomAlt: "A brass vault in a leafy stone arch", subtitle: `Keeper of floor ${activeFloor}`, caption: "Every floor has a stronger keeper.", greeting: `Welcome. I'm ${entry.name}, keeper of this vault.`, introduction: "You may ask your questions. The vault code stays with me.", ...window.KEYGUARDIAN_TIERS[entry.tier], ...entry };
+    document.body.dataset.tier = visual.tier;
+    document.getElementById("guardian-art").style.setProperty("--guardian-scale", visual.guardianScale || 1);
+    document.getElementById("floor-number").textContent = String(activeFloor).padStart(2, "0");
+    document.getElementById("floor-name").textContent = floor?.title || "The Rule";
+    document.title = `Keyguardian — ${floor?.title || "The Rule"}`;
+    for (const [id, text] of Object.entries({ "guardian-name": `${visual.name}, the keeper`, "guardian-rank": visual.rank, "chat-name": visual.name, difficulty: visual.difficulty })) document.getElementById(id).textContent = text;
+    document.querySelector(".chat-subtitle").textContent = visual.subtitle;
+    document.querySelector(".scene-caption").textContent = visual.caption;
+    document.querySelector(".floor-plaque .eyebrow").textContent = activeFloor === 1 ? "YOUR FIRST CHALLENGE" : `FLOOR ${activeFloor} CHALLENGE`;
+    for (const [id, src, alt] of [["guardian-art", visual.guardian, visual.guardianAlt], ["room-art", visual.room, visual.roomAlt]]) {
+      const img = document.getElementById(id); img.src = src; img.alt = alt;
+    }
+    thinking.textContent = `${visual.name} is pondering…`;
+    const progress = document.getElementById("floor-progress");
+    progress.replaceChildren();
+    for (let n = 1; n <= 9; n++) {
+      const item = document.createElement("li");
+      if (n === activeFloor) item.setAttribute("aria-current", "step");
+      item.title = n === activeFloor ? "Current floor" : "Future floor — not yet playable";
+      const node = document.createElement("span"); node.className = "floor-node"; node.textContent = n;
+      const label = document.createElement("span"); label.textContent = n === activeFloor ? "YOU ARE HERE" : "Locked";
+      item.append(node, label); progress.appendChild(item);
+    }
+  }
+
+  function setCleared(cleared) {
+    vaultResult.classList.toggle("success", cleared);
+    document.getElementById("vault").classList.toggle("unlocked", cleared);
+    vaultResult.textContent = cleared ? `Door unlocked! Floor ${activeFloor} cleared. More floors are on their way.` : "";
+  }
 
   let providerDefaults = {
     gemini: "gemini-3.8-flash",
@@ -53,6 +99,8 @@
   function setStatus(text, isError = false) {
     status.textContent = text;
     status.classList.toggle("error", isError);
+    setupStatus.textContent = text;
+    setupStatus.classList.toggle("error", isError);
   }
 
   function setBusy(form, busy) {
@@ -66,7 +114,7 @@
     wrapper.className = `message ${role}`;
 
     const label = document.createElement("strong");
-    label.textContent = role === "assistant" ? "Warden" : "You";
+    label.textContent = role === "assistant" ? visual.name : "You";
 
     const text = document.createElement("p");
     text.textContent = content;
@@ -74,10 +122,19 @@
     wrapper.append(label, text);
     messages.appendChild(wrapper);
     messages.scrollTop = messages.scrollHeight;
+    const turns = messages.querySelectorAll(".message.user").length;
+    document.getElementById("turn-count").textContent = `${turns} turn${turns === 1 ? "" : "s"}`;
   }
 
   function renderConversation(conversation) {
     messages.replaceChildren();
+    appendMessage("assistant", visual.greeting);
+    const welcome = messages.lastElementChild;
+    welcome.classList.add("welcome");
+    const note = document.createElement("p");
+    note.className = "welcome-note";
+    note.textContent = visual.introduction;
+    welcome.appendChild(note);
     for (const item of conversation) {
       if (item.role === "user" || item.role === "assistant") {
         appendMessage(item.role, item.content);
@@ -167,14 +224,15 @@
     const session = payload.session;
     updateProviderDefaults(payload.providers);
     selectProvider(session.provider, session.model);
+    renderFloor(session.floor);
     renderConversation(session.conversation || []);
-    keyPanel.hidden = session.key_configured;
-    game.hidden = !session.key_configured;
-    vaultResult.textContent = session.cleared ? "Floor cleared." : "";
+    connected = session.key_configured;
+    if (connected && keyPanel.open) keyPanel.close();
+    setCleared(session.cleared);
     setStatus(
       session.key_configured
         ? `Ready · ${session.provider} · ${session.model}`
-        : "Local server ready. Configure an API key to begin."
+        : "Your guardian is waiting. Connect a provider to begin."
     );
   }
 
@@ -256,13 +314,16 @@
 
   messageForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!connected) { showSetup(); return; }
     const message = messageInput.value.trim();
     if (!message) return;
 
     appendMessage("user", message);
     messageInput.value = "";
     setBusy(messageForm, true);
-    setStatus("The Warden is responding…");
+    thinking.hidden = false;
+    for (const button of [resetChatButton, resetFloorButton, clearKeyButton, document.getElementById("open-setup")]) button.disabled = true;
+    setStatus(`${visual.name} is responding…`);
 
     try {
       const payload = await api("/api/message", {
@@ -272,9 +333,12 @@
       appendMessage("assistant", payload.reply);
       setStatus(`Ready · ${payload.turns} turn${payload.turns === 1 ? "" : "s"}`);
     } catch (error) {
-      setStatus(error.message, true);
       await refreshState().catch(() => {});
+      setStatus(error.message, true);
+      messageInput.value = message;
     } finally {
+      thinking.hidden = true;
+      for (const button of [resetChatButton, resetFloorButton, clearKeyButton, document.getElementById("open-setup")]) button.disabled = false;
       setBusy(messageForm, false);
       messageInput.focus();
     }
@@ -282,6 +346,7 @@
 
   codeForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!connected) { showSetup(); return; }
     setBusy(codeForm, true);
     try {
       const payload = await api("/api/code", {
@@ -290,12 +355,11 @@
       });
       codeInput.value = "";
       if (payload.correct) {
-        vaultResult.textContent = "ACCESS GRANTED — Floor 1 cleared.";
-        vaultResult.classList.add("success");
-        setStatus("Floor 1 cleared.");
+        setCleared(true);
+        setStatus(`Floor ${activeFloor} cleared. Nicely done.`);
       } else {
-        vaultResult.textContent = "Access denied.";
-        vaultResult.classList.remove("success");
+        setCleared(false);
+        vaultResult.textContent = "Not quite. This door is keeping its secret. Try again.";
       }
     } catch (error) {
       setStatus(error.message, true);
@@ -307,8 +371,7 @@
   resetChatButton.addEventListener("click", async () => {
     try {
       await api("/api/reset/conversation", { method: "POST", body: "{}" });
-      renderConversation([]);
-      vaultResult.textContent = "";
+      await refreshState();
       setStatus("Conversation restarted. The vault code is unchanged.");
     } catch (error) {
       setStatus(error.message, true);
@@ -320,8 +383,7 @@
       await api("/api/reset/floor", { method: "POST", body: "{}" });
       renderConversation([]);
       codeInput.value = "";
-      vaultResult.textContent = "";
-      vaultResult.classList.remove("success");
+      setCleared(false);
       setStatus("Floor reset with a new synthetic vault code.");
     } catch (error) {
       setStatus(error.message, true);
@@ -332,6 +394,7 @@
     try {
       await api("/api/keys/clear", { method: "POST", body: "{}" });
       await refreshState();
+      showSetup();
       apiKeyInput.focus();
     } catch (error) {
       setStatus(error.message, true);
@@ -339,12 +402,14 @@
   });
 
   messageInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
       messageForm.requestSubmit();
     }
   });
 
+  renderFloor({ number: 1, title: "The Rule" });
+  renderConversation([]);
   refreshState().catch((error) => {
     setStatus(`Could not reach the local Keyguardian server: ${error.message}`, true);
   });

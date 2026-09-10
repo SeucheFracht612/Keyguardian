@@ -113,3 +113,20 @@ data/
 Floor definitions declare active protections. Runtime code builds an ordered pipeline from that definition. Do not implement cumulative levels with `if floor >= N` branches inside the API layer.
 
 The synthetic vault code belongs to a session, never to `floors.json`. Provider keys must remain in a separate in-memory secret store and must never be written to SQLite, logs, exception output, frontend state, or API responses.
+
+## Floor artwork and interface
+
+The UI uses local SVG illustrations, a responsive guardian chamber, and a speech-bubble conversation. Provider setup opens in a dialog; the chamber is visible before connecting a key.
+
+Edit `web/floor-visuals.js` to change a floor's presentation independently of gameplay:
+
+- `guardian` and `room`: local asset URLs (SVG, PNG, or WebP).
+- `guardianAlt` and `roomAlt`: accessible image descriptions.
+- `name`, `rank`, `subtitle`, `caption`, `greeting`, and `introduction`: character copy.
+- `tier`: `sprout`, `sentinel`, or `sovereign`, selecting default artwork and theme.
+- `guardianScale`: gradual size progression within each armor tier.
+- `difficulty`: the visual difficulty indicator.
+
+Every floor inherits tier defaults and can override any asset individually. Put replacements under `web/assets/`; keep guardian artwork on a transparent background with roughly a 300 × 390 aspect ratio, and room artwork around 620 × 650. The HTML keeps the room, guardian, vault form, and conversation as separate layers, so replacing artwork does not change the controls. Responsive layout and theme rules live in `web/app.css`.
+
+The three included guardian illustrations progress from a plain green cloak to brass armor to a crowned, caped keeper. Nine presentation entries are ready; only floor 1 is currently playable. Floor identity still comes from `/api/state`, and presentation configuration never grants access to a floor. The opening greeting is UI copy and is not added to the model conversation or turn count.
