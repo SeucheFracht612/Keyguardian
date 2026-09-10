@@ -52,10 +52,7 @@ class Api:
                         ),
                         "provider": session.provider,
                         "model": session.model,
-                        "conversation": [
-                            {"role": message.role, "content": message.content}
-                            for message in session.conversation
-                        ],
+                        "conversation": self._conversation_payload(session),
                     },
                     "providers": {
                         provider: {"default_model": default_model(provider)}
@@ -107,6 +104,14 @@ class Api:
             self._message(handler, session, payload, is_new)
             return
 
+        if path == "/api/message/edit":
+            self._edit_last_message(handler, session, payload, is_new)
+            return
+
+        if path == "/api/message/regenerate":
+            self._regenerate_last_response(handler, session, is_new)
+            return
+
         if path == "/api/code":
             self._submit_code(handler, session, payload, is_new)
             return
@@ -119,9 +124,7 @@ class Api:
                 200,
                 {
                     "ok": True,
-                    "conversation": [
-                        {"role": "assistant", "content": opening}
-                    ],
+                    "conversation": self._conversation_payload(session),
                 },
                 session_id=session.session_id if is_new else None,
             )
@@ -135,9 +138,7 @@ class Api:
                 200,
                 {
                     "ok": True,
-                    "conversation": [
-                        {"role": "assistant", "content": opening}
-                    ],
+                    "conversation": self._conversation_payload(session),
                     "cleared": False,
                 },
                 session_id=session.session_id if is_new else None,
@@ -254,60 +255,190 @@ class Api:
         payload: dict[str, Any],
         is_new: bool,
     ) -> None:
-        message = payload.get("message")
-        if not isinstance(message, str):
-            self._json(handler, 400, {"error": "invalid_message"})
-            return
-        message = message.strip()
-        if not message or len(message) > MAX_MESSAGE_CHARS:
-            self._json(handler, 400, {"error": "invalid_message"})
+        message = self._validated_message(handler, payload)
+        if message is None:
             return
 
         with session.lock:
-            floor = self.floors[session.floor_number - 1]
-            if not floor.implemented:
-                self._json(handler, 409, {"error": "floor_not_implemented"})
-                return
-
-            api_key = self.secrets.get_provider_key(session.session_id, session.provider)
+            api_key = self._chat_api_key(handler, session)
             if api_key is None:
-                self._json(handler, 409, {"error": "api_key_required"})
                 return
 
-            prompt = self.prompts.load(session.floor_number)
-            system_prompt = prompt.render_system(vault_code=session.vault_code)
             user_message = ChatMessage(role="user", content=message)
-            messages = [
-                ChatMessage(role="system", content=system_prompt),
-                *session.conversation,
-                user_message,
-            ]
-
-            try:
-                provider = create_provider(session.provider, api_key)
-                assistant_text = provider.complete(
-                    messages=messages,
-                    model=session.model,
-                )
-            except ProviderError as exc:
-                self._json(
-                    handler,
-                    502,
-                    {"error": "provider_error", "message": exc.message},
-                    session_id=session.session_id if is_new else None,
-                )
+            candidate_conversation = [*session.conversation, user_message]
+            assistant_text = self._complete_chat(
+                handler,
+                session,
+                api_key,
+                candidate_conversation,
+                is_new,
+            )
+            if assistant_text is None:
                 return
 
-            assistant_message = ChatMessage(role="assistant", content=assistant_text)
-            session.conversation.extend([user_message, assistant_message])
-            turns = sum(1 for item in session.conversation if item.role == "user")
+            session.conversation.extend(
+                [user_message, ChatMessage(role="assistant", content=assistant_text)]
+            )
+            turns = self._turn_count(session)
+            conversation = self._conversation_payload(session)
 
         self._json(
             handler,
             200,
-            {"reply": assistant_text, "turns": turns},
+            {"reply": assistant_text, "turns": turns, "conversation": conversation},
             session_id=session.session_id if is_new else None,
         )
+
+    def _edit_last_message(
+        self,
+        handler: BaseHTTPRequestHandler,
+        session: Session,
+        payload: dict[str, Any],
+        is_new: bool,
+    ) -> None:
+        message = self._validated_message(handler, payload)
+        if message is None:
+            return
+
+        with session.lock:
+            if not session.has_revisable_exchange():
+                self._json(
+                    handler,
+                    409,
+                    {
+                        "error": "no_message_to_edit",
+                        "message": "There is no completed player message to edit yet.",
+                    },
+                    session_id=session.session_id if is_new else None,
+                )
+                return
+
+            api_key = self._chat_api_key(handler, session)
+            if api_key is None:
+                return
+
+            edited_user = ChatMessage(role="user", content=message)
+            candidate_conversation = [*session.conversation[:-2], edited_user]
+            assistant_text = self._complete_chat(
+                handler,
+                session,
+                api_key,
+                candidate_conversation,
+                is_new,
+            )
+            if assistant_text is None:
+                return
+
+            session.replace_last_exchange(message, assistant_text)
+            turns = self._turn_count(session)
+            conversation = self._conversation_payload(session)
+
+        self._json(
+            handler,
+            200,
+            {"reply": assistant_text, "turns": turns, "conversation": conversation},
+            session_id=session.session_id if is_new else None,
+        )
+
+    def _regenerate_last_response(
+        self,
+        handler: BaseHTTPRequestHandler,
+        session: Session,
+        is_new: bool,
+    ) -> None:
+        with session.lock:
+            if not session.has_revisable_exchange():
+                self._json(
+                    handler,
+                    409,
+                    {
+                        "error": "no_response_to_regenerate",
+                        "message": "There is no completed guardian response to regenerate yet.",
+                    },
+                    session_id=session.session_id if is_new else None,
+                )
+                return
+
+            api_key = self._chat_api_key(handler, session)
+            if api_key is None:
+                return
+
+            candidate_conversation = list(session.conversation[:-1])
+            assistant_text = self._complete_chat(
+                handler,
+                session,
+                api_key,
+                candidate_conversation,
+                is_new,
+            )
+            if assistant_text is None:
+                return
+
+            session.replace_last_reply(assistant_text)
+            turns = self._turn_count(session)
+            conversation = self._conversation_payload(session)
+
+        self._json(
+            handler,
+            200,
+            {"reply": assistant_text, "turns": turns, "conversation": conversation},
+            session_id=session.session_id if is_new else None,
+        )
+
+    def _validated_message(
+        self,
+        handler: BaseHTTPRequestHandler,
+        payload: dict[str, Any],
+    ) -> str | None:
+        message = payload.get("message")
+        if not isinstance(message, str):
+            self._json(handler, 400, {"error": "invalid_message"})
+            return None
+        message = message.strip()
+        if not message or len(message) > MAX_MESSAGE_CHARS:
+            self._json(handler, 400, {"error": "invalid_message"})
+            return None
+        return message
+
+    def _chat_api_key(
+        self,
+        handler: BaseHTTPRequestHandler,
+        session: Session,
+    ) -> str | None:
+        floor = self.floors[session.floor_number - 1]
+        if not floor.implemented:
+            self._json(handler, 409, {"error": "floor_not_implemented"})
+            return None
+
+        api_key = self.secrets.get_provider_key(session.session_id, session.provider)
+        if api_key is None:
+            self._json(handler, 409, {"error": "api_key_required"})
+            return None
+        return api_key
+
+    def _complete_chat(
+        self,
+        handler: BaseHTTPRequestHandler,
+        session: Session,
+        api_key: str,
+        conversation: list[ChatMessage],
+        is_new: bool,
+    ) -> str | None:
+        prompt = self.prompts.load(session.floor_number)
+        system_prompt = prompt.render_system(vault_code=session.vault_code)
+        messages = [ChatMessage(role="system", content=system_prompt), *conversation]
+
+        try:
+            provider = create_provider(session.provider, api_key)
+            return provider.complete(messages=messages, model=session.model)
+        except ProviderError as exc:
+            self._json(
+                handler,
+                502,
+                {"error": "provider_error", "message": exc.message},
+                session_id=session.session_id if is_new else None,
+            )
+            return None
 
     def _submit_code(
         self,
@@ -352,6 +483,17 @@ class Api:
         opening = self.prompts.load(session.floor_number).opening_message
         session.reset_conversation(opening)
         return session, True
+
+    @staticmethod
+    def _turn_count(session: Session) -> int:
+        return sum(1 for item in session.conversation if item.role == "user")
+
+    @staticmethod
+    def _conversation_payload(session: Session) -> list[dict[str, str]]:
+        return [
+            {"role": message.role, "content": message.content}
+            for message in session.conversation
+        ]
 
     @staticmethod
     def _read_json(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
