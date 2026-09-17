@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 650" fill="none">
+<defs><linearGradient id="stone" x2="0" y2="1"><stop stop-color="#e6dcba"/><stop offset="1" stop-color="#bcaf83"/></linearGradient><linearGradient id="door" x2="1" y2="1"><stop stop-color="#62736a"/><stop offset="1" stop-color="#30463f"/></linearGradient><linearGradient id="brass" x2="1" y2="1"><stop stop-color="#e3ce95"/><stop offset="1" stop-color="#9e8555"/></linearGradient></defs>
+<ellipse cx="329" cy="604" rx="277" ry="27" fill="#293e46" opacity=".18"/>
+<path d="M96 594V235L169 83 329 34 489 83l73 152v359Z" fill="url(#stone)" stroke="#a79b72" stroke-width="4"/>
+<path d="M134 590V241l60-128 135-44 135 44 60 128v349" stroke="#e0e1ce" stroke-width="7"/>
+<path d="M166 583V247l47-100 116-42 116 42 47 100v336Z" fill="url(#door)" stroke="#304750" stroke-width="8"/>
+<path d="M186 565V254l40-88 103-38 103 38 40 88v311Z" stroke="url(#brass)" stroke-width="3"/>
+<g stroke="#87999c" stroke-width="2"><path d="m96 235 70 12m-70 66h70m-70 90h70m-70 90h70m326-246 70-12m-70 78h70m-70 90h70m-70 90h70M169 83l44 64m276-64-44 64M329 34v71"/></g>
+<path d="M259 207v333m140-333v333" stroke="#859d9e" opacity=".25" stroke-width="2"/>
+<circle cx="329" cy="332" r="78" fill="#2a424c" stroke="url(#brass)" stroke-width="7"/><circle cx="329" cy="332" r="62" stroke="#8eaaab" stroke-width="2"/><path d="m329 272 52 30v60l-52 30-52-30v-60Z" stroke="#baa572" stroke-width="3"/><circle cx="329" cy="330" r="12" fill="#d9c48d"/><path d="m323 338-5 19h22l-5-19" fill="#d9c48d"/>
+<g fill="#d6bc81" stroke="#726c51" stroke-width="3"><path d="M72 227h32v53H72Z"/><path d="M554 227h32v53h-32Z"/></g><path d="M88 239v27m482-27v27" stroke="#eee2b4" stroke-width="7"/>
+<path d="M114 589h431l20 22H94Z" fill="#87999a"/><path d="M93 612h473l17 16H77Z" fill="#a3b2ac"/>
+<path d="m329 91 59 80-59 48-59-48Z" fill="#d9c381" stroke="#f5e8b5" stroke-width="3"/><path d="M329 91v128m-59-48h118" stroke="#a99862" stroke-width="2"/><path d="m213 147 40 24m192-24-40 24" stroke="#f0e2b1" stroke-width="5"/><g stroke="#e8d89e" opacity=".8"><path d="M221 418q45 33 21 127m195-127q-45 33-21 127M249 448l-29 13m19 13 30 22m-35 16-25 7m200-71 29 13m-19 13-30 22m35 16 25 7" stroke-width="3"/></g></svg>

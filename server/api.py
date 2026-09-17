@@ -54,6 +54,9 @@ class Api:
             ("POST", "/api/code"): lambda session, body, network: self.game.submit_code(
                 session, body
             ),
+            ("POST", "/api/floor/select"): lambda session, body, network: self.game.select_floor(
+                session, body
+            ),
             ("POST", "/api/floor/next"): lambda session, body, network: self.game.advance(session),
             ("POST", "/api/floor/skip"): lambda session, body, network: self.game.advance(
                 session, skip=True

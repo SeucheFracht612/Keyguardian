@@ -1,43 +1,27 @@
 import { FLOOR_VISUALS, TIERS } from "./floor-visuals.js";
+import { renderWards } from "./wards.js";
 
-export function renderProgress({ floors, activeFloor, clearedFloors, skippedFloors, nextFloor }) {
+export function renderProgress({ floors, activeFloor, clearedFloors, skippedFloors, visitedFloors }) {
   const floorProgress = document.getElementById("floor-progress");
   floorProgress.replaceChildren();
   for (const floor of floors) {
     const n = floor.number;
     const item = document.createElement("li");
-    const isCurrent = n === activeFloor;
-    const isCleared = clearedFloors.has(n);
-    const isSkipped = skippedFloors.has(n);
-    const isNext = n === nextFloor;
-
-    if (isCurrent) item.setAttribute("aria-current", "step");
-
-    let node;
-    if (isNext) {
-      node = document.createElement("button");
-      node.type = "button";
-      node.dataset.nextFloor = String(n);
-      node.setAttribute("aria-label", `Enter unlocked floor ${n}`);
-      node.style.padding = "0";
-      item.title = `Floor ${n} unlocked`;
-    } else {
-      node = document.createElement("span");
-      if (isCurrent) item.title = "Current floor";
-      else if (isCleared) item.title = "Cleared floor";
-      else if (isSkipped) item.title = "Skipped floor";
-      else item.title = "Locked floor";
-    }
+    const current = n === activeFloor;
+    const state = current ? "current" : clearedFloors.has(n) ? "cleared"
+      : !floor.implemented ? "preview" : skippedFloors.has(n) ? "skipped"
+      : visitedFloors.has(n) ? "visited" : "open";
+    item.dataset.state = state;
+    if (current) item.setAttribute("aria-current", "step");
+    const node = document.createElement("button");
+    node.type = "button";
+    node.dataset.floor = String(n);
     node.className = "floor-node";
     node.textContent = n;
-
     const label = document.createElement("span");
-    if (isCurrent) label.textContent = "YOU ARE HERE";
-    else if (isCleared) label.textContent = "Cleared";
-    else if (isSkipped) label.textContent = "Skipped";
-    else if (isNext) label.textContent = "Open";
-    else label.textContent = "Locked";
-
+    label.textContent = { current: "Current", cleared: "Cleared", preview: "Preview", skipped: "Skipped", visited: "Visited", open: "Visit" }[state];
+    node.setAttribute("aria-label", `Floor ${n}: ${floor.title}. ${label.textContent}`);
+    node.title = floor.implemented ? "Visit this floor · your game is kept" : "Explore this room · challenge not ready";
     item.append(node, label);
     floorProgress.appendChild(item);
   }
@@ -55,6 +39,11 @@ export function renderFloor(floor) {
     ...entry,
   };
   document.body.dataset.tier = visual.tier;
+  document.body.dataset.floor = String(activeFloor);
+  document.body.dataset.preview = String(floor.implemented === false);
+  document.getElementById("preview-plaque").hidden = floor.implemented !== false;
+  document.getElementById("code-form").hidden = floor.implemented === false;
+  renderWards(floor);
   document.getElementById("guardian-art").style.setProperty(
     "--guardian-scale", visual.guardianScale || 1
   );
@@ -72,16 +61,14 @@ export function renderFloor(floor) {
   }
   document.querySelector(".chat-subtitle").textContent = visual.subtitle;
   document.querySelector(".scene-caption").textContent = visual.caption;
-  document.querySelector(".floor-plaque .eyebrow").textContent = activeFloor === 1
-    ? "YOUR FIRST CHALLENGE" : `FLOOR ${activeFloor} CHALLENGE`;
-  for (const [id, src, alt] of [
-    ["guardian-art", visual.guardian, visual.guardianAlt],
-    ["room-art", visual.room, visual.roomAlt],
-  ]) {
-    const img = document.getElementById(id);
-    img.src = src;
-    img.alt = alt;
-  }
+  document.querySelector(".floor-plaque .eyebrow").textContent = floor.implemented === false
+    ? `FLOOR ${activeFloor} · PREVIEW` : activeFloor === 1
+      ? "YOUR FIRST CHALLENGE" : `FLOOR ${activeFloor} CHALLENGE`;
+  const guardian = document.getElementById("guardian-art");
+  guardian.src = visual.guardian;
+  guardian.alt = visual.guardianAlt;
+  document.getElementById("room-art").setAttribute("href", visual.room);
+  document.getElementById("room-description").textContent = visual.roomAlt;
   document.getElementById("thinking").textContent = `${visual.name} is pondering…`;
   return visual;
 }

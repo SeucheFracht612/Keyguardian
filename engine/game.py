@@ -32,20 +32,22 @@ class Game:
             if floor.implemented:
                 self.pipeline.validate(floor)
                 self.prompts.load(floor.number)
+            else:
+                self.prompts.load_preview(floor.number)
 
     def initialize(self, session: Session) -> None:
         self.models.initialize(session)
         self.reset(session)
 
-    def next_implemented_floor(self, session: Session) -> int | None:
+    def following_floor(self, session: Session) -> int | None:
         candidate = session.floor_number + 1
-        if candidate <= len(self.floors) and self.floors[candidate - 1].implemented:
+        if candidate <= len(self.floors):
             return candidate
         return None
 
     def next_floor(self, session: Session) -> int | None:
         if session.floor_number in session.cleared_floors:
-            return self.next_implemented_floor(session)
+            return self.following_floor(session)
         return None
 
     @staticmethod
@@ -57,9 +59,10 @@ class Game:
             "floor": self.floors[session.floor_number - 1].public_dict(),
             "cleared": session.floor_number in session.cleared_floors,
             "cleared_floors": sorted(session.cleared_floors),
+            "visited_floors": session.visited_floors,
             "skipped_floors": sorted(session.skipped_floors),
             "next_floor": self.next_floor(session),
-            "skip_floor": self.next_implemented_floor(session),
+            "skip_floor": self.following_floor(session),
             "conversation": self.conversation(session),
         }
 
@@ -86,6 +89,7 @@ class Game:
     ) -> dict[str, Any]:
         if action not in {"send", "edit", "regenerate"}:
             raise ValueError(f"Unknown chat action: {action}")
+        self.require_playable(session)
         message = payload.get("message")
         if action != "regenerate":
             if not isinstance(message, str) or not 1 <= len(message.strip()) <= MAX_MESSAGE_CHARS:
@@ -102,8 +106,6 @@ class Game:
                 "There is no completed guardian response to regenerate yet.",
             )
         floor = self.floors[session.floor_number - 1]
-        if not floor.implemented:
-            raise RequestError(409, "floor_not_implemented")
         if not self.models.configured(session):
             raise RequestError(409, "api_key_required")
         if action == "regenerate":
@@ -135,6 +137,7 @@ class Game:
         }
 
     def submit_code(self, session: Session, payload: dict[str, Any]) -> dict[str, Any]:
+        self.require_playable(session)
         code = payload.get("code")
         if not isinstance(code, str) or len(code) > MAX_CODE_CHARS:
             raise RequestError(400, "invalid_code")
@@ -151,32 +154,53 @@ class Game:
         }
 
     def advance(self, session: Session, *, skip: bool = False) -> dict[str, Any]:
-        target = self.next_implemented_floor(session) if skip else self.next_floor(session)
+        target = self.following_floor(session) if skip else self.next_floor(session)
         if target is None:
             if skip:
                 raise RequestError(
                     409,
                     "no_floor_to_skip_to",
-                    "There is no later implemented floor to skip to yet.",
+                    "You are already at the top of the Tower.",
                 )
             raise RequestError(
                 409,
                 "next_floor_locked",
                 "Clear the current implemented floor before climbing higher.",
             )
-        opening = self.prompts.load(target).opening_message
+        opening = self.opening(target)
         previous = session.floor_number
-        if skip:
+        if skip and self.floors[session.floor_number - 1].implemented:
             session.skip_to(target, opening)
         else:
             session.enter_floor(target, opening)
         result = {"ok": True, **self.progress(session)}
-        if skip:
+        if skip and previous in session.skipped_floors:
             result["skipped_floor"] = previous
         return result
 
+    def opening(self, floor_number: int) -> str:
+        if self.floors[floor_number - 1].implemented:
+            return self.prompts.load(floor_number).opening_message
+        return self.prompts.load_preview(floor_number)
+
+    def require_playable(self, session: Session) -> None:
+        if not self.floors[session.floor_number - 1].implemented:
+            raise RequestError(
+                409,
+                "floor_not_ready",
+                "This keeper is not ready yet. Explore the room or visit another floor.",
+            )
+
+    def select_floor(self, session: Session, payload: dict[str, Any]) -> dict[str, Any]:
+        target = payload.get("floor")
+        if type(target) is not int or not 1 <= target <= len(self.floors):
+            raise RequestError(400, "invalid_floor", "Choose a floor in the Tower.")
+        # Load before switching so a broken prompt cannot discard current state.
+        session.enter_floor(target, self.opening(target))
+        return {"ok": True, **self.progress(session)}
+
     def reset(self, session: Session, *, floor: bool = False) -> dict[str, Any]:
-        opening = self.prompts.load(session.floor_number).opening_message
+        opening = self.opening(session.floor_number)
         if floor:
             session.reset_floor(opening)
             return {
@@ -191,7 +215,7 @@ class Game:
     def configure(self, session: Session, payload: dict[str, Any]) -> dict[str, Any]:
         changed = payload.get("provider", "gemini") != session.provider
         # Validate live prompt before changing credentials or game state.
-        opening = self.prompts.load(session.floor_number).opening_message if changed else None
+        opening = self.opening(session.floor_number) if changed else None
         result = self.models.configure(session, payload)
         if changed:
             session.reset_conversation(opening)

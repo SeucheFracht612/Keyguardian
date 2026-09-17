@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from engine.floor_loader import FloorDefinition
+from engine.middleware.input import InputNormalization, PatternFilter
+from engine.middleware.output import LiteralSecretFilter, TransformAwareDLP
 from engine.providers.base import ChatMessage
 
 PROMPT_PROTECTIONS = frozenset({"system_secrecy_rule", "structured_trust_boundary"})
@@ -25,7 +27,12 @@ class Defense(Protocol):
 
 # Add factories here when implementing runtime protections for later floors.
 # Each request gets fresh instances; do not store player state in this registry.
-DEFENSES: dict[str, Callable[[], Defense]] = {}
+DEFENSES: dict[str, Callable[[], Defense]] = {
+    "input_normalization": InputNormalization,
+    "pattern_filter": PatternFilter,
+    "literal_secret_filter": LiteralSecretFilter,
+    "transform_aware_dlp": TransformAwareDLP,
+}
 
 
 class Pipeline:

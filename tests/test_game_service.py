@@ -95,7 +95,7 @@ class GameServiceTests(unittest.TestCase):
         self.assertEqual([1], result["cleared_floors"])
         self.assertEqual([], result["skipped_floors"])
         self.assertNotEqual(code, self.session.vault_code)
-        self.assertIsNone(self.game.next_implemented_floor(self.session))
+        self.assertEqual(3, self.game.following_floor(self.session))
 
     def test_local_provider_change_resets_only_conversation_and_bad_config_is_atomic(self):
         api = Api(Settings())

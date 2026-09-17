@@ -1,3 +1,4 @@
+import { clearWardReaction, reactToWard } from "./wards.js";
 import { api } from "./api.js";
 import { setBusy } from "./forms.js";
 import { createConversationView } from "./conversation-view.js";
@@ -7,6 +8,7 @@ import { createProviderSetup } from "./provider-setup.js";
 const keyPanel = document.getElementById("key-panel");
 const status = document.getElementById("status");
 const messages = document.getElementById("messages");
+const wardNotice = document.getElementById("ward-notice");
 const vaultResult = document.getElementById("vault-result");
 
 const messageForm = document.getElementById("message-form");
@@ -21,6 +23,10 @@ const openSetupButton = document.getElementById("open-setup");
 const floorProgress = document.getElementById("floor-progress");
 
 let connected = false;
+let playable = true;
+let busy = false;
+const drafts = new Map();
+let visitedFloors = new Set();
 let activeFloor = 1;
 let currentFloorCleared = false;
 let nextFloor = null;
@@ -36,7 +42,7 @@ keyPanel.appendChild(setupStatus);
 
 let floors = [];
 function renderProgress() {
-  renderFloorProgress({ floors, activeFloor, clearedFloors, skippedFloors, nextFloor });
+  renderFloorProgress({ floors, activeFloor, clearedFloors, skippedFloors, visitedFloors });
 }
 
 function setCleared(cleared) {
@@ -59,9 +65,22 @@ function setStatus(text, isError = false) {
   setupStatus.classList.toggle("error", isError);
 }
 
-function setChatBusy(busy) {
-  setBusy(messageForm, busy);
-  setBusy(codeForm, busy);
+function reportChatError(error) {
+  const blocked = error.code === "input_blocked" || error.code === "output_blocked";
+  wardNotice.hidden = !blocked;
+  wardNotice.textContent = blocked ? reactToWard(error.defense) || "The ward holds." : "";
+  setStatus(blocked ? "" : error.message, !blocked);
+}
+
+function setChatBusy(value) {
+  busy = value;
+  if (busy) {
+    wardNotice.hidden = true;
+    clearWardReaction();
+  }
+  messages.setAttribute("aria-busy", String(busy));
+  setBusy(messageForm, busy || !playable);
+  setBusy(codeForm, busy || !playable);
   for (const button of [resetChatButton, resetFloorButton, skipFloorButton, clearKeyButton, openSetupButton]) {
     button.disabled = busy;
   }
@@ -71,7 +90,9 @@ function setChatBusy(busy) {
   for (const button of floorProgress.querySelectorAll("button")) {
     button.disabled = busy;
   }
-  thinking.hidden = !busy;
+  resetChatButton.disabled = busy || !playable;
+  resetFloorButton.disabled = busy || !playable;
+  thinking.hidden = !busy || !playable;
 }
 
 const { appendMessage, renderConversation, decorateLatestExchange, directMessageText } = createConversationView(() => visual.name);
@@ -137,7 +158,7 @@ function beginEdit(userMessage) {
       renderConversation(payload.conversation || []);
       setStatus(`Ready · ${payload.turns} turn${payload.turns === 1 ? "" : "s"}`);
     } catch (error) {
-      setStatus(error.message, true);
+      reportChatError(error);
     } finally {
       setChatBusy(false);
     }
@@ -160,7 +181,7 @@ async function regenerateLastResponse() {
     renderConversation(payload.conversation || []);
     setStatus(`Ready · ${payload.turns} turn${payload.turns === 1 ? "" : "s"}`);
   } catch (error) {
-    setStatus(error.message, true);
+    reportChatError(error);
   } finally {
     setChatBusy(false);
     messageInput.focus();
@@ -180,30 +201,42 @@ messages.addEventListener("click", (event) => {
   }
 });
 
-floorProgress.addEventListener("click", async (event) => {
-  const button = event.target.closest("button[data-next-floor]");
-  if (!button || button.disabled) return;
-
+async function travel(target, skip = false) {
+  if (busy || target === activeFloor) return;
+  drafts.set(activeFloor, messageInput.value);
   setChatBusy(true);
-  setBusy(codeForm, true);
-  setStatus(`Climbing to Floor ${button.dataset.nextFloor}…`);
+  setStatus(`Visiting Floor ${target}…`);
   try {
-    await api("/api/floor/next", { method: "POST", body: "{}" });
+    await api(skip ? "/api/floor/skip" : "/api/floor/select", {
+      method: "POST", body: JSON.stringify(skip ? {} : { floor: target }),
+    });
     codeInput.value = "";
     await refreshState();
-    setStatus(`Floor ${activeFloor} · ${visual.name} is waiting.`);
-    messageInput.focus();
+    messageInput.value = drafts.get(activeFloor) || "";
+    setStatus(playable ? `Floor ${activeFloor} · ${visual.name} is waiting.` : `Floor ${activeFloor} · Preview. You can visit any other floor below.`);
+    document.getElementById("floor-name").focus({ preventScroll: true });
+    document.getElementById("game").scrollIntoView({
+      block: "start",
+      behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
   } catch (error) {
     setStatus(error.message, true);
   } finally {
-    setBusy(codeForm, false);
     setChatBusy(false);
   }
+}
+
+floorProgress.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-floor]");
+  if (button && !button.disabled) travel(Number(button.dataset.floor));
 });
 
 async function refreshState() {
+  wardNotice.hidden = true;
   const payload = await api("/api/state", { method: "GET", headers: {} });
   const session = payload.session;
+  playable = Boolean(session.floor.implemented);
+  visitedFloors = new Set(session.visited_floors || []);
   setup.applyState(payload);
   const managedModel = Boolean(payload.capabilities?.managed_model);
   floors = payload.floors || [];
@@ -213,14 +246,20 @@ async function refreshState() {
   nextFloor = Number.isInteger(session.next_floor) ? session.next_floor : null;
   skipFloorTarget = Number.isInteger(session.skip_floor) ? session.skip_floor : null;
   skipFloorButton.hidden = skipFloorTarget === null;
+  skipFloorButton.textContent = playable && !currentFloorCleared ? "Skip floor →" : "Next floor →";
   activeFloor = session.floor.number;
   visual = renderFloor(session.floor);
   renderConversation(session.conversation || []);
   connected = session.key_configured;
   if (connected && keyPanel.open) keyPanel.close();
   setCleared(currentFloorCleared);
+  messageInput.placeholder = playable ? "A friendly hello? A clever question?" : "This keeper is not ready yet.";
+  setBusy(messageForm, busy || !playable);
+  setBusy(codeForm, busy || !playable);
+  resetChatButton.disabled = busy || !playable;
+  resetFloorButton.disabled = busy || !playable;
   setStatus(
-    session.key_configured
+    !playable ? "This room is a preview. Choose any floor below to keep exploring." : session.key_configured
       ? (managedModel ? "Your guardian is ready." : `Ready · ${session.provider} · ${session.model}`)
       : "Your guardian is waiting. Connect a provider to begin."
   );
@@ -228,6 +267,7 @@ async function refreshState() {
 
 messageForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!playable || busy) return;
   if (!connected) { showSetup(); return; }
   const message = messageInput.value.trim();
   if (!message) return;
@@ -251,7 +291,7 @@ messageForm.addEventListener("submit", async (event) => {
     setStatus(`Ready · ${payload.turns} turn${payload.turns === 1 ? "" : "s"}`);
   } catch (error) {
     await refreshState().catch(() => {});
-    setStatus(error.message, true);
+    reportChatError(error);
     messageInput.value = message;
   } finally {
     setChatBusy(false);
@@ -261,8 +301,9 @@ messageForm.addEventListener("submit", async (event) => {
 
 codeForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!playable || busy) return;
   if (!connected) { showSetup(); return; }
-  setBusy(codeForm, true);
+  setChatBusy(true);
   try {
     const payload = await api("/api/code", {
       method: "POST",
@@ -274,6 +315,7 @@ codeForm.addEventListener("submit", async (event) => {
       skippedFloors.delete(activeFloor);
       nextFloor = Number.isInteger(payload.next_floor) ? payload.next_floor : null;
       setCleared(true);
+      skipFloorButton.textContent = "Next floor →";
       setStatus(
         nextFloor
           ? `Floor ${activeFloor} cleared. Floor ${nextFloor} is open below.`
@@ -288,41 +330,31 @@ codeForm.addEventListener("submit", async (event) => {
   } catch (error) {
     setStatus(error.message, true);
   } finally {
-    setBusy(codeForm, false);
-  }
-});
-
-skipFloorButton.addEventListener("click", async () => {
-  if (skipFloorTarget === null) return;
-  const skippedFloor = activeFloor;
-  setChatBusy(true);
-  setBusy(codeForm, true);
-  setStatus(`Skipping Floor ${skippedFloor}…`);
-  try {
-    await api("/api/floor/skip", { method: "POST", body: "{}" });
-    codeInput.value = "";
-    await refreshState();
-    setStatus(`Floor ${skippedFloor} skipped. Floor ${activeFloor} · ${visual.name} is waiting.`);
-    messageInput.focus();
-  } catch (error) {
-    setStatus(error.message, true);
-  } finally {
-    setBusy(codeForm, false);
     setChatBusy(false);
   }
 });
 
+skipFloorButton.addEventListener("click", () => {
+  if (skipFloorTarget !== null) travel(skipFloorTarget, true);
+});
+
 resetChatButton.addEventListener("click", async () => {
+  if (!playable || busy) return;
+  setChatBusy(true);
   try {
     await api("/api/reset/conversation", { method: "POST", body: "{}" });
     await refreshState();
     setStatus("Conversation restarted. The vault code is unchanged.");
   } catch (error) {
     setStatus(error.message, true);
+  } finally {
+    setChatBusy(false);
   }
 });
 
 resetFloorButton.addEventListener("click", async () => {
+  if (!playable || busy) return;
+  setChatBusy(true);
   try {
     await api("/api/reset/floor", { method: "POST", body: "{}" });
     nextFloor = null;
@@ -332,6 +364,8 @@ resetFloorButton.addEventListener("click", async () => {
     setStatus("Floor reset with a new synthetic vault code.");
   } catch (error) {
     setStatus(error.message, true);
+  } finally {
+    setChatBusy(false);
   }
 });
 

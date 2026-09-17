@@ -22,7 +22,10 @@ export async function api(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+    const error = new Error(payload.message || payload.error || `HTTP ${response.status}`);
+    error.code = payload.error;
+    error.defense = payload.defense;
+    throw error;
   }
   return payload;
 }

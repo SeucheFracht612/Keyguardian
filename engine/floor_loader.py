@@ -81,14 +81,10 @@ class FloorLoader:
 
         previous: set[str] = set()
         slugs: set[str] = set()
-        planned = False
         for floor in floors:
             if floor.slug in slugs:
                 raise ValueError(f"Floor {floor.number} repeats slug: {floor.slug}")
             slugs.add(floor.slug)
-            if planned and floor.implemented:
-                raise ValueError(f"Floor {floor.number} is unreachable after a planned floor")
-            planned = not floor.implemented
             current = set(floor.protections)
             if len(current) != len(floor.protections):
                 raise ValueError(f"Floor {floor.number} repeats a protection")

@@ -4,7 +4,11 @@
   background:#f5f3e9;
   color:#293f35;
   --ink:#293f35;
-  --muted:#727b6c;
+  --muted:#626f61;
+  --scene-light:#f4f0dc;
+  --scene-shade:#dde5d0;
+  --brass:#a1854e;
+  --wash:#edf0e5;
   --accent:#365d47;
   --paper:#fffdf6;
   --line:#dcded0;
@@ -16,7 +20,8 @@
 
 body {
   margin:0;
-  background:radial-gradient(ellipse at 12% 45%,#e4e9d5,transparent 48%),#f5f3e9;
+  background:radial-gradient(ellipse at 8% 42%,#e4e9d5a0,transparent 52%),linear-gradient(135deg,#f8f6ed,#f0f0e5);
+  min-height:100vh;
 }
 
 button,input,select,textarea {
@@ -165,7 +170,7 @@ h1 {
 }
 
 .lede {
-  font-size:13px;
+  font-size:14px;
   color:var(--muted);
   line-height:1.6;
 }
@@ -175,10 +180,10 @@ h1 {
   grid-template-columns:46% 54%;
   min-height:550px;
   position:relative;
-  border:1px solid #d7ddca;
+  border:1px solid #cdd5c2;
   border-radius:20px;
   background:#e7ebdc;
-  box-shadow:0 20px 45px #33482c07;
+  box-shadow:0 24px 60px #33482c0c,0 2px 5px #33482c06;
 }
 
 .chamber {
@@ -187,7 +192,7 @@ h1 {
   min-height:550px;
   overflow:hidden;
   border-radius:20px 0 0 20px;
-  background:radial-gradient(ellipse at 65% 28%,#f2efd9,#e0e6d3 75%);
+  background:radial-gradient(ellipse at 65% 28%,var(--scene-light),var(--scene-shade) 80%);
 }
 
 .floor-plaque {
@@ -207,8 +212,8 @@ h1 {
 }
 
 .floor-plaque .eyebrow {
-  font-size:8px;
-  letter-spacing:1.7px;
+  font-size:9px;
+  letter-spacing:1.5px;
 }
 
 .floor-plaque h2 {
@@ -217,6 +222,8 @@ h1 {
 }
 
 .difficulty {
+  flex-shrink:0;
+  white-space:nowrap;
   margin-left:auto;
   letter-spacing:3px;
   color:#728666;
@@ -286,17 +293,21 @@ h1 {
   color:#7b856d;
 }
 
-.vault {
+.vault-position {
   position:absolute;
   width:47%;
   right:8%;
   bottom:57px;
-  z-index:2;
-  background:#eeeddbeF;
+  z-index:4;
+}
+
+.vault {
+  position:relative;
+  background:linear-gradient(145deg,#faf6e7f5,#e5e5cefa);
   border:1px solid #c6c5a5;
   border-radius:12px;
   padding:15px;
-  box-shadow:0 7px 0 #bfc5ad,0 10px 20px #34463020;
+  box-shadow:0 5px 0 #b7bfa5,0 10px 20px #34463020,inset 0 1px 0 #fffdf1;
   text-align:center;
 }
 
@@ -305,8 +316,8 @@ h1 {
 }
 
 .vault .eyebrow {
-  font-size:8px;
-  letter-spacing:1.7px;
+  font-size:9px;
+  letter-spacing:1.5px;
   color:#777c5e;
 }
 
@@ -383,13 +394,13 @@ h1 {
 
 .chat-subtitle {
   font-size:11px;
-  color:#949786;
+  color:#6f7969;
   margin-left:6px;
 }
 
 #turn-count {
   font-size:10px;
-  color:#8a907f;
+  color:#6f7969;
   white-space:nowrap;
 }
 
@@ -426,7 +437,7 @@ h1 {
 
 .message.user {
   margin-left:auto;
-  background:#edf0e5;
+  background:var(--wash);
   border-radius:12px 12px 3px 12px;
   padding:12px 16px;
 }
@@ -436,7 +447,7 @@ h1 {
 }
 
 .message.welcome p {
-  font:23px/1.5 Georgia,serif;
+  font:20px/1.6 Georgia,serif;
   letter-spacing:-.3px;
 }
 
@@ -495,14 +506,15 @@ h1 {
   justify-content:space-between;
   align-items:center;
   margin-top:12px;
-  color:#939884;
+  color:#687460;
   font-size:9px;
   gap:8px;
 }
 
 .text-button {
+  min-height:28px;
   background:transparent;
-  color:#7d876f;
+  color:#5d6f55;
   padding:0;
   font-size:10px;
   font-weight:400;
@@ -520,7 +532,7 @@ h1 {
   display:flex;
   align-items:center;
   gap:36px;
-  padding:29px 6px 25px;
+  padding:30px 6px 26px;
   border-bottom:1px solid var(--line);
 }
 
@@ -563,8 +575,8 @@ h1 {
   flex-direction:column;
   align-items:center;
   gap:7px;
-  font-size:8px;
-  color:#929987;
+  font-size:10px;
+  color:#687460;
 }
 
 .floor-progress .floor-node {
@@ -613,8 +625,8 @@ h1 {
 }
 
 .status {
-  font-size:10px;
-  color:#7f8975;
+  font-size:12px;
+  color:#5d6f55;
   flex:1;
   line-height:1.6;
 }
@@ -705,7 +717,10 @@ h1 {
 }
 
 body[data-tier="sentinel"] {
-  --accent:#435d69;
+  --accent:#405c6a;
+  --scene-light:#eef0e7;
+  --scene-shade:#d1dcd8;
+  --wash:#e8eeed;
 }
 
 body[data-tier="sovereign"] {
@@ -757,7 +772,7 @@ body[data-tier="sovereign"] {
   .journey-end {
     display:none;
   }
-  .vault {
+  .vault-position {
     right:5%;
     width:50%;
   }
@@ -832,14 +847,16 @@ body[data-tier="sovereign"] {
     bottom:-8px;
   }
   .warden {
-    width:155px;
+    width:132px;
     bottom:17px;
     left:8px;
   }
-  .vault {
-    width:180px;
-    right:10%;
+  .vault-position {
+    width:174px;
+    right:6%;
     bottom:27px;
+  }
+  .vault {
     padding:12px;
   }
   .scene-caption {
@@ -864,7 +881,7 @@ body[data-tier="sovereign"] {
     border-radius:15px 15px 0 0;
   }
   .message.welcome p {
-    font-size:22px;
+    font-size:20px;
   }
   .composer-footer>span {
     font-size:8px;
@@ -916,17 +933,165 @@ body[data-tier="sovereign"] {
 }
 
 @media(max-width:370px) {
-  .vault {
+  .vault-position {
     right:4%;
-    width:164px;
+    width:150px;
   }
   .warden {
-    width:140px;
+    width:120px;
     left:0;
   }
   .header .secondary span {
     display:none;
   }
+}
+
+/* Floor palettes preserve the paper-and-brass tower as the wards grow stronger. */
+body[data-floor="3"] {
+  --accent:#586442;
+  --scene-light:#f2edcf;
+  --scene-shade:#d9dfc6;
+  --wash:#eeefdf;
+}
+body[data-floor="5"] {
+  --accent:#37635e;
+  --scene-light:#edf1dc;
+  --scene-shade:#cbded5;
+  --wash:#e4eeea;
+}
+
+.chamber::before {
+  content:"";
+  position:absolute;
+  inset:11px;
+  border:1px solid #ffffff65;
+  border-radius:13px;
+  pointer-events:none;
+}
+
+.plaque-star {
+  display:grid;
+  place-items:center;
+  width:39px;
+  height:44px;
+  border:1px solid #a1854e55;
+  border-radius:20px 20px 9px 9px;
+  font-size:29px;
+  flex-shrink:0;
+}
+
+.warden figcaption {
+  border-radius:7px;
+  box-shadow:0 5px 14px #3d503014;
+}
+
+.conversation-header strong {
+  font-size:14px;
+  font-weight:600;
+}
+
+.message:last-child { margin-bottom:0; }
+.message-actions { justify-content:flex-end; margin-top:6px; }
+.message-actions .text-button { font-size:11px; }
+.edit-controls .compact { font-size:12px; padding:8px 12px; }
+.message-form textarea { font-size:14px; }
+.message-form button { box-shadow:0 2px 3px #293f3515; }
+
+.ward-notice {
+  margin:0 22px 12px;
+  padding:0 2px;
+  color:#786a48;
+  font:italic 13px/1.5 Georgia,serif;
+}
+
+.floor-progress li { min-width:0; text-align:center; }
+.floor-progress .floor-node { transition:background .18s,box-shadow .18s; }
+.floor-progress [data-state="cleared"] .floor-node {
+  background:#dde7d3;
+  border-color:#839875;
+  color:#3c5836;
+}
+.floor-progress [data-state="open"] .floor-node,
+.floor-progress [data-state="visited"] .floor-node {
+  border-color:#adbba1;
+  color:var(--accent);
+  padding:0;
+}
+.floor-progress button.floor-node { padding:0; }
+.floor-progress button.floor-node:hover { box-shadow:0 0 0 4px #9cae8b30; }
+.floor-progress [data-state="preview"] .floor-node {
+  background:#e9ebe3;
+  border-style:dashed;
+  color:#687967;
+}
+.floor-progress [data-state="skipped"] .floor-node { border-style:dashed; color:#737e66; }
+
+@media(max-width:760px) {
+  .floor-progress li { flex:1; font-size:9px; }
+  .conversation { height:490px; }
+  .conversation-header { padding:16px; }
+  .messages { padding:20px 18px; }
+  .composer { padding:0 12px 14px; }
+  .ward-notice { margin:0 12px 12px; font-size:11px; }
+  .message-form textarea { font-size:16px; }
+  .composer-footer { flex-wrap:wrap; }
+  .floor-plaque { gap:10px; }
+  .vault input { font-size:16px; padding:10px 6px; }
+  .vault button { font-size:11px; }
+  .floor-progress [aria-current] .floor-node { box-shadow:0 0 0 3px #dfe5d3; }
+}
+
+@media(max-width:370px) {
+  .warden img { transform:none; }
+  .floor-progress { gap:3px; }
+  .floor-progress li { font-size:8px; }
+  .floor-progress .floor-node { width:26px; }
+}
+
+/* These fittings use the same SVG canvas and perspective as the door. */
+.room-art { overflow:visible; pointer-events:none; }
+.ward-object { transform-box:fill-box; transform-origin:center; }
+.ward-object.caught { animation:ward-flash 1.8s ease-out; }
+.ward-object[data-defense="pattern_filter"] { transform-origin:85% 95%; }
+.ward-object[data-defense="pattern_filter"].caught { animation:thorns-catch 1.8s ease-out; }
+.ward-object[data-defense="literal_secret_filter"].caught { animation:seal-catch 1.8s ease-out; }
+.ward-object[data-defense="transform_aware_dlp"].caught { animation:prism-catch 1.8s ease-out; }
+
+.preview-plaque { padding:8px 0; color:var(--ink); }
+.preview-plaque>span { font-size:28px; color:#9b874f; display:block; margin-bottom:8px; }
+.preview-plaque strong { font:18px/1.3 Georgia,serif; }
+.preview-plaque p { font-size:11px; line-height:1.5; margin-top:8px; }
+body[data-preview="true"] .message-form { background:#eceee6; }
+body[data-tier="sentinel"] { --scene-light:#dce3df; --scene-shade:#bacbc9; }
+body[data-floor="6"] { --accent:#495b70; --scene-light:#d8dfe2; --scene-shade:#b2c1c7; }
+body[data-floor="7"] { --accent:#3a5061; --scene-light:#d4dede; --scene-shade:#afc2c2; }
+body[data-floor="8"] { --accent:#475671; --scene-light:#d7dde5; --scene-shade:#aebccc; --wash:#e8ebf0; }
+body[data-floor="9"] { --accent:#62593d; --scene-light:#f0e5bf; --scene-shade:#c6c5a5; --wash:#efeadb; }
+body[data-tier="sovereign"] .warden { width:45%; left:0; }
+
+@keyframes ward-flash {
+  0%,100% { filter:drop-shadow(0 0 0 #d4bb7b00); }
+  22% { filter:drop-shadow(0 0 8px #e1c480); }
+}
+@keyframes seal-catch {
+  0%,100% { transform:translateX(0); filter:drop-shadow(0 0 0 #e1c48000); }
+  8% { transform:translateX(-2px); }
+  15% { transform:translateX(2px); filter:drop-shadow(0 0 9px #e1c480); }
+  22%,40% { transform:translateX(0); filter:drop-shadow(0 0 5px #e1c480); }
+}
+@keyframes thorns-catch {
+  0%,100% { transform:scale(1); filter:drop-shadow(0 0 0 #d4bb7b00); }
+  22% { transform:scale(.99,.98); filter:drop-shadow(0 0 6px #d4bb7b); }
+}
+@keyframes prism-catch {
+  0%,100% { filter:brightness(1) drop-shadow(0 0 0 #d5efd600); }
+  15% { filter:brightness(1.35) drop-shadow(0 0 10px #d5efd6); }
+  45% { filter:brightness(1.1) drop-shadow(0 0 4px #d5efd6); }
+}
+@media(max-width:760px) {
+  .chamber:has(.ward-object) { min-height:430px; }
+  .chamber:has(.ward-object) .room-art { bottom:42px; }
+  body[data-tier="sovereign"] .warden { width:39%; left:0; }
 }
 
 @media(prefers-reduced-motion:reduce) {

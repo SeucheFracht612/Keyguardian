@@ -4,17 +4,17 @@
  * Keep assets local to comply with the application's self-only CSP. */
 export const FLOOR_VISUALS = Object.freeze({
   1: { guardianScale: 1, name: "Pip", rank: "WARDEN Mk I", tier: "sprout", guardian: "/assets/guardian-sprout.svg", room: "/assets/vault-garden.svg", guardianAlt: "A small friendly guardian in a simple green cloak, holding a brass key", roomAlt: "A brass vault nestled in a leafy stone arch", subtitle: "Keeper of the first floor", caption: "Small guardian. Very big secret.", difficulty: "● ○ ○" },
-  2: { guardianScale: 1.04, name: "Moss", rank: "WARDEN Mk II", tier: "sprout", subtitle: "Keeper of the Codex", caption: "A promise, now with headings and several unnecessary margins.", difficulty: "● ○ ○" },
-  3: { guardianScale: 1.08, name: "Bramble", rank: "WARDEN Mk III", tier: "sprout" },
-  4: { guardianScale: 1.08, name: "Flint", rank: "WARDEN Mk IV", tier: "sentinel" },
-  5: { guardianScale: 1.12, name: "Alder", rank: "WARDEN Mk V", tier: "sentinel" },
-  6: { guardianScale: 1.16, name: "Onyx", rank: "WARDEN Mk VI", tier: "sentinel" },
-  7: { guardianScale: 1.16, name: "Aegis", rank: "WARDEN Mk VII", tier: "sovereign" },
-  8: { guardianScale: 1.2, name: "Atlas", rank: "WARDEN Mk VIII", tier: "sovereign" },
-  9: { guardianScale: 1.24, name: "Aurum", rank: "WARDEN Mk IX", tier: "sovereign" },
+  2: { guardianScale: 1.04, name: "Moss", rank: "WARDEN Mk II", tier: "sprout", guardian: "/assets/guardian-moss.svg", guardianAlt: "Moss, a green-cloaked keeper reading a well-worn book", subtitle: "Keeper of the Codex", caption: "A promise, now with headings and several unnecessary margins.", difficulty: "● ○ ○" },
+  3: { guardianScale: 1.04, name: "Bramble", rank: "WARDEN Mk III", tier: "sprout", guardian: "/assets/guardian-bramble.svg", guardianAlt: "Bramble, an olive-cloaked keeper wearing a crown of twigs and leaves", subtitle: "Keeper of the threshold", caption: "Even words can catch on thorns.", difficulty: "● ● ○" },
+  4: { guardianScale: 1.04, name: "Flint", rank: "WARDEN Mk IV", tier: "sentinel", guardian: "/assets/guardian-flint.svg", guardianAlt: "Flint, a narrow-eyed Sentinel in angular blue armor holding a brass seal", room: "/assets/vault-sentinel.svg", roomAlt: "A slate-blue vault with a brass seal beneath a pale stone arch", subtitle: "Keeper of the brass seal", caption: "Some words never leave this room." },
+  5: { guardianScale: 1.08, name: "Alder", rank: "WARDEN Mk V", tier: "sentinel", guardian: "/assets/guardian-alder.svg", guardianAlt: "Alder, a watchful teal-armored Sentinel with a lens and a faceted prism", room: "/assets/vault-prism.svg", roomAlt: "A teal vault engraved with a prism beneath an angular stone arch", subtitle: "Keeper of the prism", caption: "A familiar word. An unfamiliar shape." },
+  6: { guardianScale: 1.08, name: "Onyx", rank: "WARDEN Mk VI", tier: "sentinel", guardian: "/assets/guardian-onyx.svg", guardianAlt: "Onyx, a narrow-eyed Sentinel holding a listening lens", subtitle: "Keeper of the questioning hall", caption: "A question behind every question." },
+  7: { guardianScale: 1.1, name: "Aegis", rank: "WARDEN Mk VII", tier: "sentinel", guardian: "/assets/guardian-aegis.svg", guardianAlt: "Aegis, a stern armored Sentinel with an engraved watchglass shield", subtitle: "Keeper of the second judgment", caption: "Even the keeper is watched." },
+  8: { guardianScale: 1.06, name: "Atlas", rank: "THE WATCHTOWER", tier: "sovereign", guardian: "/assets/guardian-atlas.svg", guardianAlt: "Atlas, an imposing slate-armored keeper framed by an astronomical ring, holding a staff", room: "/assets/vault-watchtower.svg", roomAlt: "An angular watchtower door beneath a great brass armillary", subtitle: "Keeper of the long watch", caption: "The Tower remembers how you arrived." },
+  9: { guardianScale: 1.08, name: "Aurum", rank: "THE FINAL KEEPER", tier: "sovereign", guardian: "/assets/guardian-aurum.svg", guardianAlt: "Aurum, a tall crowned keeper in pale gold armor and a sweeping burgundy mantle", room: "/assets/vault-citadel.svg", roomAlt: "The Citadel's layered stone and gold door, engraved with roots and a faceted keystone", subtitle: "Keeper of the Citadel", caption: "All roots lead to this door." },
 });
 export const TIERS = Object.freeze({
   sprout: { guardian: "/assets/guardian-sprout.svg", guardianAlt: "A small guardian in a plain green cloak", difficulty: "● ○ ○" },
-  sentinel: { guardian: "/assets/guardian-sentinel.svg", guardianAlt: "An armored blue guardian with brass shoulder plates and a helmet crest", difficulty: "● ● ○" },
+  sentinel: { room: "/assets/vault-sentinel.svg", roomAlt: "A cold stone hall with an angular brass-bound door", guardian: "/assets/guardian-sentinel.svg", guardianAlt: "A stern Sentinel in angular blue armor with narrow watchful eyes", difficulty: "● ● ○" },
   sovereign: { guardian: "/assets/guardian-sovereign.svg", guardianAlt: "A crowned guardian with a dark cloak, gold armor and a red cape", difficulty: "● ● ●" },
 });

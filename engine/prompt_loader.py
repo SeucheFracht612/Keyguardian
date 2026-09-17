@@ -79,6 +79,13 @@ class PromptLoader:
             opening_message=opening_message.strip(),
         )
 
+    def load_preview(self, floor_number: int) -> str:
+        raw = self._load_json(PROMPT_ROOT / f"floor-{floor_number:02d}.json", "floor preview")
+        message = raw.get("opening_message")
+        if not isinstance(message, str) or not message.strip():
+            raise ValueError(f"Floor {floor_number} needs an opening_message for its preview")
+        return message.strip()
+
     @staticmethod
     def _load_json(path: Path, label: str) -> dict[str, object]:
         try:

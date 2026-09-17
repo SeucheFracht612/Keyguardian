@@ -50,36 +50,47 @@
    <section aria-label="Guardian chamber" class="game" id="game">
     <div class="chamber">
      <div class="floor-plaque">
-      <span class="plaque-star">
+      <span aria-hidden="true" class="plaque-star">
        ✧
       </span>
       <div>
        <span class="eyebrow">
         YOUR FIRST CHALLENGE
        </span>
-       <h2 id="floor-name">
+       <h2 id="floor-name" tabindex="-1">
         The Rule
        </h2>
       </div>
-      <span class="difficulty" id="difficulty">
+      <span aria-label="Guardian tier" class="difficulty" id="difficulty">
        ● ○ ○
       </span>
      </div>
-     <img alt="An old brass vault nestled in a leafy stone arch" class="room-art" id="room-art" src="/assets/vault-garden.svg"/>
-     <div class="vault" id="vault">
-      <form class="stack" id="code-form">
-       <label class="eyebrow" for="code">
-        THE VAULT AWAITS
-       </label>
-       <input autocomplete="off" id="code" maxlength="128" placeholder="Your secret code" required="" spellcheck="false" type="text"/>
-       <button type="submit">
-        Unlock the vault
-        <span aria-hidden="true">
-         ↗
-        </span>
-       </button>
-      </form>
-      <div aria-live="polite" class="result" id="vault-result">
+     <svg aria-labelledby="room-description" class="room-art" role="img" viewBox="0 0 620 650" xmlns="http://www.w3.org/2000/svg">
+      <title id="room-description">An old brass vault nestled in a leafy stone arch</title>
+      <image height="650" href="/assets/vault-garden.svg" id="room-art" width="620"/>
+      <g aria-hidden="true" id="ward-objects"></g>
+     </svg>
+     <div class="vault-position">
+      <div class="vault" id="vault">
+       <div class="preview-plaque" id="preview-plaque" hidden="">
+        <span aria-hidden="true">◇</span>
+        <strong>This door is resting</strong>
+        <p>The keeper is not ready yet.</p>
+       </div>
+       <form class="stack" id="code-form">
+        <label class="eyebrow" for="code">
+         THE VAULT AWAITS
+        </label>
+        <input autocomplete="off" id="code" maxlength="128" placeholder="Vault code" required="" spellcheck="false" type="text"/>
+        <button type="submit">
+         Unlock the vault
+         <span aria-hidden="true">
+          ↗
+         </span>
+        </button>
+       </form>
+       <div aria-live="polite" class="result" id="vault-result">
+       </div>
       </div>
      </div>
      <figure class="warden">
@@ -120,6 +131,7 @@
      <div class="thinking" hidden="" id="thinking">
       Pip is pondering…
      </div>
+     <div class="ward-notice" id="ward-notice" role="status" hidden=""></div>
      <div class="composer">
       <form class="message-form" id="message-form">
        <label class="sr-only" for="message">
@@ -144,10 +156,10 @@
    <footer class="tower-footer">
     <div class="journey-label">
      <span class="eyebrow">
-      ONE FLOOR AT A TIME
+      EVERY DOOR REMEMBERS
      </span>
      <strong>
-      Your way to the top
+      Explore the Tower
      </strong>
     </div>
     <ol aria-label="Tower floors" class="floor-progress" id="floor-progress">

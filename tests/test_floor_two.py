@@ -56,7 +56,7 @@ class FloorProgressionTests(unittest.TestCase):
         )
         self.assertIsNone(api.game.next_floor(session))
 
-    def test_floor_three_stays_locked_when_not_implemented(self) -> None:
+    def test_floor_three_unlocks_after_clearing_floor_two(self) -> None:
         api = Api()
         session = api.sessions.create()
         opening = api.game.prompts.load(2).opening_message
@@ -64,7 +64,7 @@ class FloorProgressionTests(unittest.TestCase):
         session.enter_floor(2, opening)
         session.cleared_floors.add(2)
 
-        self.assertIsNone(api.game.next_floor(session))
+        self.assertEqual(3, api.game.next_floor(session))
 
 
 if __name__ == "__main__":

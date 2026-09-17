@@ -31,6 +31,12 @@ def _new_vault_code(exclude: str | None = None) -> str:
 
 
 @dataclass
+class FloorState:
+    vault_code: str = field(repr=False)
+    conversation: list[ChatMessage] = field(default_factory=list, repr=False)
+
+
+@dataclass
 class Session:
     session_id: str
     owner_id: str = field(default="", repr=False)
@@ -42,6 +48,7 @@ class Session:
     skipped_floors: set[int] = field(default_factory=set)
     vault_code: str = field(default_factory=_new_vault_code, repr=False)
     conversation: list[ChatMessage] = field(default_factory=list, repr=False)
+    _visited: dict[int, FloorState] = field(default_factory=dict, repr=False)
     provider: str = "gemini"
     model: str = field(default_factory=lambda: default_model("gemini"))
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
@@ -62,21 +69,29 @@ class Session:
                 self.conversation.append(ChatMessage(role="assistant", content=opening_message))
 
     def enter_floor(self, floor_number: int, opening_message: str | None = None) -> None:
-        """Enter another authorized floor with a fresh synthetic secret.
+        """Save the current room and resume a visited room, or create its first state.
 
-        Authorization belongs to the API because it depends on configured floor
-        availability and progression. Session only owns the state transition.
-        Cleared/skipped history remains recorded so earlier progress is not lost.
+        The active room lives in the public session fields; _visited holds only
+        inactive rooms. Inactive rooms and codes are never serialized into API state.
         """
         if floor_number < 1:
             raise ValueError("Floor number must be positive")
         with self.lock:
-            previous_code = self.vault_code
+            if floor_number == self.floor_number:
+                return
+            self._visited[self.floor_number] = FloorState(self.vault_code, self.conversation)
+            target = self._visited.pop(floor_number, None)
+            if target is None:
+                target = FloorState(_new_vault_code(exclude=self.vault_code))
+                if opening_message:
+                    target.conversation.append(ChatMessage("assistant", opening_message))
             self.floor_number = floor_number
-            self.vault_code = _new_vault_code(exclude=previous_code)
-            self.conversation.clear()
-            if opening_message:
-                self.conversation.append(ChatMessage(role="assistant", content=opening_message))
+            self.vault_code = target.vault_code
+            self.conversation = target.conversation
+
+    @property
+    def visited_floors(self) -> list[int]:
+        return sorted({self.floor_number, *self._visited})
 
     def skip_to(self, floor_number: int, opening_message: str | None = None) -> None:
         """Skip the current floor and enter an API-authorized later floor.

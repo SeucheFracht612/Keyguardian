@@ -3,6 +3,7 @@ export function createConversationView(guardianName) {
   function appendMessage(role, content) {
     const wrapper = document.createElement("article");
     wrapper.className = `message ${role}`;
+    if (role === "assistant" && !messages.children.length) wrapper.classList.add("welcome");
 
     const label = document.createElement("strong");
     label.textContent = role === "assistant" ? guardianName() : "You";
@@ -49,6 +50,7 @@ export function createConversationView(guardianName) {
       }
     }
     decorateLatestExchange();
+    if (!conversation.some(item => item.role === "user")) messages.scrollTop = 0;
   }
 
   function directMessageText(message) {

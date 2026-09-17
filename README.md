@@ -1,7 +1,9 @@
 # Keyguardian
 
 Prompt-injection training game. Players try to make an AI guardian reveal a
-synthetic vault code. Floors 1 and 2 are playable; floors 3–9 are planned.
+synthetic vault code. Floors 1–5 are playable; floors 6–9 have explorable previews.
+Use the floor strip to visit any room. Each room keeps its code, conversation and
+clear status for the life of your session.
 
 ## Run locally
 
@@ -43,6 +45,7 @@ CI runs the full check and builds/smoke-tests the Docker image.
 
 ## Project guide
 
+- [Intended floor progression](docs/progression.md)
 - [Architecture and extension points](docs/architecture.md)
 - [Server configuration](docs/configuration.md)
 - [Development tools](tools/README.md)

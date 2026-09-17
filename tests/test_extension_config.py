@@ -33,7 +33,7 @@ class ExtensionConfigTests(unittest.TestCase):
             with self.subTest(field=field, value=value), self.assertRaisesRegex(ValueError, field):
                 self.load([{**floor, field: value}])
 
-    def test_duplicate_slugs_and_unreachable_floors_are_rejected(self):
+    def test_duplicate_slugs_are_rejected_and_previews_do_not_lock_later_floors(self):
         floors = [item.public_dict() for item in FloorLoader().load()]
         floors[1]["slug"] = floors[0]["slug"]
         with self.assertRaisesRegex(ValueError, "repeats slug"):
@@ -41,8 +41,9 @@ class ExtensionConfigTests(unittest.TestCase):
         floors[1]["slug"] = "second"
         floors[1]["implemented"] = False
         floors[2]["implemented"] = True
-        with self.assertRaisesRegex(ValueError, "unreachable"):
-            self.load(floors)
+        loaded = self.load(floors)
+        self.assertFalse(loaded[1].implemented)
+        self.assertTrue(loaded[2].implemented)
 
     def test_registration_supplies_state_configuration_and_factory(self):
         factory = Mock()
