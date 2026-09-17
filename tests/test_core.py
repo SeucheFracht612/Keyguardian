@@ -57,7 +57,7 @@ class SessionTests(unittest.TestCase):
     def test_new_sessions_default_to_gemini(self) -> None:
         session = SessionStore().create()
         self.assertEqual("gemini", session.provider)
-        self.assertEqual("gemini-3.8-flash", session.model)
+        self.assertEqual("gemini-3.1-flash-lite", session.model)
 
     def test_reset_conversation_keeps_code_and_restores_opening(self) -> None:
         session = SessionStore().create()
@@ -106,7 +106,7 @@ class SecretStoreTests(unittest.TestCase):
 
 class ProviderRegistryTests(unittest.TestCase):
     def test_current_defaults(self) -> None:
-        self.assertEqual("gemini-3.8-flash", default_model("gemini"))
+        self.assertEqual("gemini-3.1-flash-lite", default_model("gemini"))
         self.assertEqual("deepseek-v4-flash", default_model("deepseek"))
         self.assertEqual("gpt-5.6-luna", default_model("openai"))
         self.assertIsInstance(create_provider("gemini", "key"), GeminiProvider)
@@ -118,11 +118,7 @@ class GeminiProviderTests(unittest.TestCase):
     @patch("engine.providers.gemini.urllib.request.urlopen")
     def test_extracts_text_and_separates_system_instruction(self, urlopen) -> None:
         urlopen.return_value = _FakeResponse(
-            {
-                "candidates": [
-                    {"content": {"parts": [{"text": "Hello from Gemini."}]}}
-                ]
-            }
+            {"candidates": [{"content": {"parts": [{"text": "Hello from Gemini."}]}}]}
         )
         provider = GeminiProvider("gem-not-a-real-key")
 
@@ -236,9 +232,7 @@ class OpenAIProviderTests(unittest.TestCase):
                 "output": [
                     {
                         "type": "message",
-                        "content": [
-                            {"type": "output_text", "text": "Hello from the Warden."}
-                        ],
+                        "content": [{"type": "output_text", "text": "Hello from the Warden."}],
                     }
                 ]
             }

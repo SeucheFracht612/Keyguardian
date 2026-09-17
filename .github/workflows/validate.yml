@@ -1,0 +1,29 @@
+name: Validate application and deployment package
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -r requirements-dev.txt
+      - run: python tools/validate.py
+      - run: docker build -t keyguardian:test .
+      - name: Smoke-test the packaged server without model calls
+        run: |
+          docker run -d --read-only --name keyguardian-test -p 127.0.0.1:8080:8080 -e KEYGUARDIAN_DEPLOYMENT=local keyguardian:test
+          trap 'docker logs keyguardian-test; docker rm -f keyguardian-test' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/api/health; then break; fi
+            sleep 1
+          done
+          python tools/smoke_http.py http://127.0.0.1:8080

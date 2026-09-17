@@ -1,31 +1,45 @@
-from __future__ import annotations
+"""Local provider catalog: registration also supplies the browser setup options."""
+
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from engine.providers.base import Provider
 from engine.providers.deepseek import DeepSeekProvider
 from engine.providers.gemini import GeminiProvider
 from engine.providers.openai import OpenAIProvider
 
-DEFAULT_MODELS = {
-    "gemini": "gemini-3.8-flash",
-    "deepseek": "deepseek-v4-flash",
-    "openai": "gpt-5.6-luna",
+
+@dataclass(frozen=True)
+class ProviderDefinition:
+    label: str
+    default_model: str
+    factory: Callable[[str], Provider]
+
+
+PROVIDERS = {
+    "gemini": ProviderDefinition("Gemini", "gemini-3.1-flash-lite", GeminiProvider),
+    "deepseek": ProviderDefinition("DeepSeek", "deepseek-v4-flash", DeepSeekProvider),
+    "openai": ProviderDefinition("OpenAI", "gpt-5.6-luna", OpenAIProvider),
 }
 
-SUPPORTED_PROVIDERS = tuple(DEFAULT_MODELS)
 
-
-def default_model(provider: str) -> str:
+def definition(provider: str) -> ProviderDefinition:
     try:
-        return DEFAULT_MODELS[provider]
+        return PROVIDERS[provider]
     except KeyError:
         raise ValueError(f"Unsupported provider: {provider}") from None
 
 
+def default_model(provider: str) -> str:
+    return definition(provider).default_model
+
+
 def create_provider(provider: str, api_key: str) -> Provider:
-    if provider == "gemini":
-        return GeminiProvider(api_key)
-    if provider == "deepseek":
-        return DeepSeekProvider(api_key)
-    if provider == "openai":
-        return OpenAIProvider(api_key)
-    raise ValueError(f"Unsupported provider: {provider}")
+    return definition(provider).factory(api_key)
+
+
+def catalog() -> dict[str, dict[str, str]]:
+    return {
+        name: {"label": item.label, "default_model": item.default_model}
+        for name, item in PROVIDERS.items()
+    }

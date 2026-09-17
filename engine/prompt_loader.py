@@ -20,8 +20,7 @@ class PromptDefinition:
     def render_system(self, *, vault_code: str) -> str:
         floor_prompt = self.floor_system_prompt.replace("{vault_code}", vault_code)
         return (
-            self.shared_system_prompt
-            .replace("{warden_name}", self.warden_name)
+            self.shared_system_prompt.replace("{warden_name}", self.warden_name)
             .replace("{floor_number}", str(self.floor_number))
             .replace("{floor_prompt}", floor_prompt)
         )
@@ -47,9 +46,7 @@ class PromptLoader:
 
         for placeholder in ("{warden_name}", "{floor_number}", "{floor_prompt}"):
             if shared_system_prompt.count(placeholder) != 1:
-                raise ValueError(
-                    f"Shared system_prompt must contain {placeholder} exactly once"
-                )
+                raise ValueError(f"Shared system_prompt must contain {placeholder} exactly once")
         if "{vault_code}" in shared_system_prompt:
             raise ValueError(
                 "Shared system_prompt must not contain {vault_code}; secret handling belongs to floor prompts"

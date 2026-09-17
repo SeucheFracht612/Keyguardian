@@ -33,9 +33,18 @@ class GeminiProvider:
 
     name = "gemini"
 
-    def __init__(self, api_key: str, *, timeout_seconds: float = 45.0) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        timeout_seconds: float = 45.0,
+        max_output_tokens: int = 1200,
+        managed: bool = False,
+    ) -> None:
         self._api_key = api_key
         self._timeout_seconds = timeout_seconds
+        self._max_output_tokens = max_output_tokens
+        self._managed = managed
 
     def complete(self, *, messages: list[ChatMessage], model: str) -> str:
         system_parts: list[str] = []
@@ -55,12 +64,10 @@ class GeminiProvider:
 
         payload: dict[str, object] = {
             "contents": contents,
-            "generationConfig": {"maxOutputTokens": 1200},
+            "generationConfig": {"maxOutputTokens": self._max_output_tokens},
         }
         if system_parts:
-            payload["systemInstruction"] = {
-                "parts": [{"text": "\n\n".join(system_parts)}]
-            }
+            payload["systemInstruction"] = {"parts": [{"text": "\n\n".join(system_parts)}]}
 
         normalized_model = model.strip().removeprefix("models/")
         url = _BASE_URL.format(model=urllib.parse.quote(normalized_model, safe=""))
@@ -78,22 +85,45 @@ class GeminiProvider:
             with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
                 body = response.read()
         except urllib.error.HTTPError as exc:
+            if self._managed:
+                # Provider error bodies are untrusted and may echo credentials/input.
+                message = (
+                    "Gemini is busy or its request quota is exhausted. Please try later."
+                    if exc.code == 429
+                    else "The guardian service is unavailable. Please contact the administrator."
+                )
+                raise ProviderError(message, exc.code) from None
             raise self._http_error(exc, model=normalized_model) from None
         except urllib.error.URLError:
-            raise ProviderError("Could not reach the Gemini API. Check network/proxy access.") from None
+            raise ProviderError(
+                "Could not reach the Gemini API. Check network/proxy access."
+            ) from None
         except TimeoutError:
             raise ProviderError("The Gemini request timed out.") from None
 
         try:
             data = json.loads(body.decode("utf-8"))
             candidates = data["candidates"]
+            if self._managed and candidates[0].get("finishReason") != "STOP":
+                raise ProviderError(
+                    "The guardian did not return a complete reply. Try a shorter request."
+                )
             parts = candidates[0]["content"]["parts"]
             text = "".join(
                 part.get("text", "")
                 for part in parts
-                if isinstance(part, dict) and isinstance(part.get("text"), str)
+                if isinstance(part, dict)
+                and isinstance(part.get("text"), str)
+                and not part.get("thought", False)
             ).strip()
-        except (UnicodeDecodeError, json.JSONDecodeError, KeyError, IndexError, AttributeError, TypeError):
+        except (
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            KeyError,
+            IndexError,
+            AttributeError,
+            TypeError,
+        ):
             raise ProviderError("Gemini returned an unreadable response.") from None
 
         if not text:
@@ -134,7 +164,9 @@ class GeminiProvider:
             except urllib.error.HTTPError as exc:
                 raise self._http_error(exc) from None
             except urllib.error.URLError:
-                raise ProviderError("Could not reach the Gemini API. Check network/proxy access.") from None
+                raise ProviderError(
+                    "Could not reach the Gemini API. Check network/proxy access."
+                ) from None
             except TimeoutError:
                 raise ProviderError("The Gemini model list request timed out.") from None
 
@@ -154,7 +186,9 @@ class GeminiProvider:
                     if not self._is_game_model(model_id):
                         continue
                     display_name = item.get("displayName")
-                    label = display_name if isinstance(display_name, str) and display_name else model_id
+                    label = (
+                        display_name if isinstance(display_name, str) and display_name else model_id
+                    )
                     models.append(ModelInfo(id=model_id, label=label))
                 page_token = data.get("nextPageToken")
             except (UnicodeDecodeError, json.JSONDecodeError, AttributeError, TypeError):

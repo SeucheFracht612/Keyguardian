@@ -1,5 +1,8 @@
-# Optional development tools
+# Tools
 
-Build-time utilities such as a standalone Tailwind CLI may be placed here.
+- `validate.py`: tests, Python lint/format, JS syntax checks.
+- `build-image.sh`: build, offline container tests, HTTP smoke test and image export.
+- `check_provider.py`: validate Gemini configuration; `--invoke` makes one paid call.
+- `smoke_http.py URL`: GET homepage, health and state; no model calls.
 
-**Nothing in this directory may be required to run Keyguardian.** A distributed copy must remain runnable with `python app.py` without Node, npm, Tailwind, or another build tool.
+None is required by `python app.py`. See the root README for development setup.

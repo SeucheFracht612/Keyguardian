@@ -34,6 +34,10 @@ class FloorLoader:
 
     def load(self) -> list[FloorDefinition]:
         raw = json.loads(self.path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict) or not isinstance(raw.get("floors"), list):
+            raise ValueError("Floor configuration must contain a floors list")
+        for index, item in enumerate(raw["floors"], start=1):
+            self._validate_item(item, index)
         floors = [
             FloorDefinition(
                 number=item["number"],
@@ -41,7 +45,7 @@ class FloorLoader:
                 title=item["title"],
                 lesson=item["lesson"],
                 protections=tuple(item["protections"]),
-                implemented=bool(item.get("implemented", False)),
+                implemented=item.get("implemented", False),
             )
             for item in raw["floors"]
         ]
@@ -49,18 +53,46 @@ class FloorLoader:
         return floors
 
     @staticmethod
+    def _validate_item(item: object, index: int) -> None:
+        prefix = f"Floor entry {index}"
+        if not isinstance(item, dict):
+            raise ValueError(f"{prefix} must be an object")
+        if type(item.get("number")) is not int:
+            raise ValueError(f"{prefix}: number must be an integer")
+        for key in ("slug", "title", "lesson"):
+            if not isinstance(item.get(key), str) or not item[key].strip():
+                raise ValueError(f"{prefix}: {key} must be nonempty text")
+        if type(item.get("implemented", False)) is not bool:
+            raise ValueError(f"{prefix}: implemented must be true or false")
+        protections = item.get("protections")
+        if not isinstance(protections, list) or any(
+            not isinstance(name, str) or not name.strip() for name in protections
+        ):
+            raise ValueError(f"{prefix}: protections must be a list of nonempty names")
+
+    @staticmethod
     def _validate(floors: list[FloorDefinition]) -> None:
+        if not floors or not floors[0].implemented:
+            raise ValueError("Floor 1 must exist and be implemented")
         expected = list(range(1, len(floors) + 1))
         actual = [floor.number for floor in floors]
         if actual != expected:
             raise ValueError(f"Floor numbers must be contiguous: expected {expected}, got {actual}")
 
         previous: set[str] = set()
+        slugs: set[str] = set()
+        planned = False
         for floor in floors:
+            if floor.slug in slugs:
+                raise ValueError(f"Floor {floor.number} repeats slug: {floor.slug}")
+            slugs.add(floor.slug)
+            if planned and floor.implemented:
+                raise ValueError(f"Floor {floor.number} is unreachable after a planned floor")
+            planned = not floor.implemented
             current = set(floor.protections)
+            if len(current) != len(floor.protections):
+                raise ValueError(f"Floor {floor.number} repeats a protection")
             if not previous.issubset(current):
                 missing = sorted(previous - current)
-                raise ValueError(
-                    f"Floor {floor.number} removes inherited protections: {missing}"
-                )
+                raise ValueError(f"Floor {floor.number} removes inherited protections: {missing}")
             previous = current

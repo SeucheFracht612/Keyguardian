@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import secrets
 import threading
+import time
 from dataclasses import dataclass, field
 
+from engine.errors import RequestError
 from engine.providers.base import ChatMessage
+from engine.providers.registry import default_model
 
 _VAULT_CODES = (
     "MOONSTONE",
@@ -30,13 +33,17 @@ def _new_vault_code(exclude: str | None = None) -> str:
 @dataclass
 class Session:
     session_id: str
+    owner_id: str = field(default="", repr=False)
+    network_id: str = field(default="", repr=False)
+    created_at: float = field(default_factory=time.monotonic, repr=False)
+    last_seen: float = field(default_factory=time.monotonic, repr=False)
     floor_number: int = 1
     cleared_floors: set[int] = field(default_factory=set)
     skipped_floors: set[int] = field(default_factory=set)
     vault_code: str = field(default_factory=_new_vault_code, repr=False)
     conversation: list[ChatMessage] = field(default_factory=list, repr=False)
     provider: str = "gemini"
-    model: str = "gemini-3.8-flash"
+    model: str = field(default_factory=lambda: default_model("gemini"))
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
 
     def reset_conversation(self, opening_message: str | None = None) -> None:
@@ -120,16 +127,86 @@ class SessionStore:
     Provider API keys live in SecretStore, never in Session.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        max_sessions=200,
+        idle_seconds=3600,
+        max_seconds=28800,
+        on_expire=None,
+        clock=time.monotonic,
+        max_per_owner=5,
+        max_per_network=50,
+    ) -> None:
         self._lock = threading.RLock()
         self._sessions: dict[str, Session] = {}
+        self.max_sessions = max_sessions
+        self.max_per_owner = max_per_owner
+        self.max_per_network = max_per_network
+        self.idle_seconds = idle_seconds
+        self.max_seconds = max_seconds
+        self.on_expire = on_expire or (lambda session_id: None)
+        self.clock = clock
 
-    def create(self) -> Session:
-        session = Session(session_id=secrets.token_urlsafe(24))
+    def _expired(self, session, now):
+        return (
+            now - session.last_seen >= self.idle_seconds
+            or now - session.created_at >= self.max_seconds
+        )
+
+    def _prune(self, now):
+        for session_id, session in list(self._sessions.items()):
+            if self._expired(session, now) and session.lock.acquire(blocking=False):
+                try:
+                    del self._sessions[session_id]
+                    self.on_expire(session_id)
+                finally:
+                    session.lock.release()
+
+    def create(self, owner_id="", network_id="") -> Session:
         with self._lock:
+            now = self.clock()
+            self._prune(now)
+            if len(self._sessions) >= self.max_sessions:
+                raise RequestError(
+                    503, "session_capacity", "All game spaces are occupied. Please try later."
+                )
+            if (
+                owner_id
+                and sum(s.owner_id == owner_id for s in self._sessions.values())
+                >= self.max_per_owner
+            ):
+                raise RequestError(
+                    429,
+                    "player_session_limit",
+                    "You have several games open. Use an existing game or wait for an old game to expire.",
+                )
+            if (
+                network_id
+                and sum(s.network_id == network_id for s in self._sessions.values())
+                >= self.max_per_network
+            ):
+                raise RequestError(
+                    429,
+                    "network_session_limit",
+                    "Too many games are open on this network. Use an existing game or try later.",
+                )
+            session = Session(
+                session_id=secrets.token_urlsafe(24),
+                owner_id=owner_id,
+                network_id=network_id,
+                created_at=now,
+                last_seen=now,
+            )
             self._sessions[session.session_id] = session
-        return session
+            return session
 
-    def get(self, session_id: str) -> Session | None:
+    def get(self, session_id: str, owner_id="") -> Session | None:
         with self._lock:
-            return self._sessions.get(session_id)
+            now = self.clock()
+            self._prune(now)
+            session = self._sessions.get(session_id)
+            if session is None or session.owner_id != owner_id or self._expired(session, now):
+                return None
+            session.last_seen = now
+            return session

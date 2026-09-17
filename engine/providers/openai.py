@@ -22,10 +22,7 @@ class OpenAIProvider:
     def complete(self, *, messages: list[ChatMessage], model: str) -> str:
         payload = {
             "model": model,
-            "input": [
-                {"role": message.role, "content": message.content}
-                for message in messages
-            ],
+            "input": [{"role": message.role, "content": message.content} for message in messages],
             "reasoning": {"effort": "none"},
             "text": {"verbosity": "low"},
             "max_output_tokens": 1200,
@@ -47,7 +44,9 @@ class OpenAIProvider:
         except urllib.error.HTTPError as exc:
             raise self._http_error(exc) from None
         except urllib.error.URLError:
-            raise ProviderError("Could not reach the OpenAI API. Check network/proxy access.") from None
+            raise ProviderError(
+                "Could not reach the OpenAI API. Check network/proxy access."
+            ) from None
         except TimeoutError:
             raise ProviderError("The OpenAI request timed out.") from None
 
@@ -82,7 +81,9 @@ class OpenAIProvider:
         except urllib.error.HTTPError as exc:
             raise self._http_error(exc) from None
         except urllib.error.URLError:
-            raise ProviderError("Could not reach the OpenAI API. Check network/proxy access.") from None
+            raise ProviderError(
+                "Could not reach the OpenAI API. Check network/proxy access."
+            ) from None
         except TimeoutError:
             raise ProviderError("The OpenAI model list request timed out.") from None
 
@@ -107,7 +108,9 @@ class OpenAIProvider:
         elif exc.code == 403:
             message = "OpenAI denied access to this request or model."
         elif exc.code == 404:
-            message = "The configured OpenAI resource was not found or is unavailable to this API key."
+            message = (
+                "The configured OpenAI resource was not found or is unavailable to this API key."
+            )
         elif exc.code == 429:
             message = "OpenAI rate-limited the request or the account has no available quota."
         else:

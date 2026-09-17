@@ -11,9 +11,9 @@ class SkipFloorTests(unittest.TestCase):
         api = Api()
         session = api.sessions.create()
         old_code = session.vault_code
-        opening = api.prompts.load(2).opening_message
+        opening = api.game.prompts.load(2).opening_message
 
-        self.assertEqual(2, api._next_implemented_floor_number(session))
+        self.assertEqual(2, api.game.next_implemented_floor(session))
 
         session.skip_to(2, opening)
 
@@ -30,7 +30,7 @@ class SkipFloorTests(unittest.TestCase):
         api = Api()
         session = api.sessions.create()
         session.cleared_floors.add(1)
-        opening = api.prompts.load(2).opening_message
+        opening = api.game.prompts.load(2).opening_message
 
         session.skip_to(2, opening)
 
@@ -40,16 +40,16 @@ class SkipFloorTests(unittest.TestCase):
     def test_last_implemented_floor_has_no_skip_target(self) -> None:
         api = Api()
         session = api.sessions.create()
-        session.skip_to(2, api.prompts.load(2).opening_message)
+        session.skip_to(2, api.game.prompts.load(2).opening_message)
 
-        self.assertIsNone(api._next_implemented_floor_number(session))
+        self.assertIsNone(api.game.next_implemented_floor(session))
 
     def test_reset_current_floor_clears_current_skip_marker(self) -> None:
         api = Api()
         session = api.sessions.create()
         session.skipped_floors.add(1)
 
-        session.reset_floor(api.prompts.load(1).opening_message)
+        session.reset_floor(api.game.prompts.load(1).opening_message)
 
         self.assertNotIn(1, session.skipped_floors)
 

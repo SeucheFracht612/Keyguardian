@@ -38,13 +38,13 @@ class FloorProgressionTests(unittest.TestCase):
         api = Api()
         session = api.sessions.create()
 
-        self.assertIsNone(api._next_floor_number(session))
+        self.assertIsNone(api.game.next_floor(session))
 
         session.cleared_floors.add(1)
-        self.assertEqual(2, api._next_floor_number(session))
+        self.assertEqual(2, api.game.next_floor(session))
 
         old_code = session.vault_code
-        opening = api.prompts.load(2).opening_message
+        opening = api.game.prompts.load(2).opening_message
         session.enter_floor(2, opening)
 
         self.assertEqual(2, session.floor_number)
@@ -54,17 +54,17 @@ class FloorProgressionTests(unittest.TestCase):
             [ChatMessage(role="assistant", content=opening)],
             session.conversation,
         )
-        self.assertIsNone(api._next_floor_number(session))
+        self.assertIsNone(api.game.next_floor(session))
 
     def test_floor_three_stays_locked_when_not_implemented(self) -> None:
         api = Api()
         session = api.sessions.create()
-        opening = api.prompts.load(2).opening_message
+        opening = api.game.prompts.load(2).opening_message
         session.cleared_floors.add(1)
         session.enter_floor(2, opening)
         session.cleared_floors.add(2)
 
-        self.assertIsNone(api._next_floor_number(session))
+        self.assertIsNone(api.game.next_floor(session))
 
 
 if __name__ == "__main__":

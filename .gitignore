@@ -9,3 +9,17 @@ Thumbs.db
 data/*.sqlite
 data/*.sqlite3
 !data/.gitkeep
+
+.venv*/
+dist/
+
+.idea/
+.ruff_cache/
+.env.*
+
+
+# Local handovers, exports and credentials
+internal/
+private/
+*.pem
+*.key

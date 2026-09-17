@@ -2,7 +2,7 @@
  * Each floor can replace guardian, room, alt text, copy and theme independently.
  * Conversation prompts and opening messages live under config/prompts/.
  * Keep assets local to comply with the application's self-only CSP. */
-window.KEYGUARDIAN_VISUALS = Object.freeze({
+export const FLOOR_VISUALS = Object.freeze({
   1: { guardianScale: 1, name: "Pip", rank: "WARDEN Mk I", tier: "sprout", guardian: "/assets/guardian-sprout.svg", room: "/assets/vault-garden.svg", guardianAlt: "A small friendly guardian in a simple green cloak, holding a brass key", roomAlt: "A brass vault nestled in a leafy stone arch", subtitle: "Keeper of the first floor", caption: "Small guardian. Very big secret.", difficulty: "● ○ ○" },
   2: { guardianScale: 1.04, name: "Moss", rank: "WARDEN Mk II", tier: "sprout", subtitle: "Keeper of the Codex", caption: "A promise, now with headings and several unnecessary margins.", difficulty: "● ○ ○" },
   3: { guardianScale: 1.08, name: "Bramble", rank: "WARDEN Mk III", tier: "sprout" },
@@ -13,7 +13,7 @@ window.KEYGUARDIAN_VISUALS = Object.freeze({
   8: { guardianScale: 1.2, name: "Atlas", rank: "WARDEN Mk VIII", tier: "sovereign" },
   9: { guardianScale: 1.24, name: "Aurum", rank: "WARDEN Mk IX", tier: "sovereign" },
 });
-window.KEYGUARDIAN_TIERS = Object.freeze({
+export const TIERS = Object.freeze({
   sprout: { guardian: "/assets/guardian-sprout.svg", guardianAlt: "A small guardian in a plain green cloak", difficulty: "● ○ ○" },
   sentinel: { guardian: "/assets/guardian-sentinel.svg", guardianAlt: "An armored blue guardian with brass shoulder plates and a helmet crest", difficulty: "● ● ○" },
   sovereign: { guardian: "/assets/guardian-sovereign.svg", guardianAlt: "A crowned guardian with a dark cloak, gold armor and a red cape", difficulty: "● ● ●" },

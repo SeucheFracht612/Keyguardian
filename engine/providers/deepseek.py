@@ -23,8 +23,7 @@ class DeepSeekProvider:
         payload = {
             "model": model,
             "messages": [
-                {"role": message.role, "content": message.content}
-                for message in messages
+                {"role": message.role, "content": message.content} for message in messages
             ],
             "thinking": {"type": "disabled"},
             "max_tokens": 1200,
@@ -46,14 +45,23 @@ class DeepSeekProvider:
         except urllib.error.HTTPError as exc:
             raise self._http_error(exc) from None
         except urllib.error.URLError:
-            raise ProviderError("Could not reach the DeepSeek API. Check network/proxy access.") from None
+            raise ProviderError(
+                "Could not reach the DeepSeek API. Check network/proxy access."
+            ) from None
         except TimeoutError:
             raise ProviderError("The DeepSeek request timed out.") from None
 
         try:
             data = json.loads(body.decode("utf-8"))
             text = data["choices"][0]["message"]["content"].strip()
-        except (UnicodeDecodeError, json.JSONDecodeError, KeyError, IndexError, AttributeError, TypeError):
+        except (
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            KeyError,
+            IndexError,
+            AttributeError,
+            TypeError,
+        ):
             raise ProviderError("DeepSeek returned an unreadable response.") from None
 
         if not text:
@@ -72,7 +80,9 @@ class DeepSeekProvider:
         except urllib.error.HTTPError as exc:
             raise self._http_error(exc) from None
         except urllib.error.URLError:
-            raise ProviderError("Could not reach the DeepSeek API. Check network/proxy access.") from None
+            raise ProviderError(
+                "Could not reach the DeepSeek API. Check network/proxy access."
+            ) from None
         except TimeoutError:
             raise ProviderError("The DeepSeek model list request timed out.") from None
 
